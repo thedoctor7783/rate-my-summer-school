@@ -1,0 +1,323 @@
+{
+  "vanderbilt.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Vanderbilt_University_logo.svg",
+    "file": "vanderbilt.edu.hd.svg",
+    "size": 334942
+  },
+  "ucdavis.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/f3/The_University_of_California_Davis.svg",
+    "file": "ucdavis.edu.hd.svg",
+    "size": 40681
+  },
+  "virginia.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/17/University_of_Virginia_seal.svg",
+    "file": "virginia.edu.hd.svg",
+    "size": 35474
+  },
+  "wisc.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/4/45/Seal_of_the_University_of_Wisconsin.svg",
+    "file": "wisc.edu.hd.svg",
+    "size": 89760
+  },
+  "ufl.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/8e/University_of_Florida_logo.svg",
+    "file": "ufl.edu.hd.svg",
+    "size": 22542
+  },
+  "gatech.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/6c/Georgia_Tech_seal.svg",
+    "file": "gatech.edu.hd.svg",
+    "size": 46266
+  },
+  "princeton.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Princeton_seal.svg",
+    "file": "princeton.edu.hd.svg",
+    "size": 33709
+  },
+  "purdue.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/f7/Purdue_University_system_logo.svg",
+    "file": "purdue.edu.hd.svg",
+    "size": 4636
+  },
+  "syr.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/4/44/Syracuse_University_wordmark.svg",
+    "file": "syr.edu.hd.svg",
+    "size": 5971
+  },
+  "udel.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/b3/University_of_Delaware_wordmark.svg",
+    "file": "udel.edu.hd.svg",
+    "size": 8077
+  },
+  "umass.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/e/e8/University_of_Massachusetts_Amherst_seal_black.svg",
+    "file": "umass.edu.hd.svg",
+    "size": 67073
+  },
+  "wpi.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/7e/WPI_wordmark.svg",
+    "file": "wpi.edu.hd.svg",
+    "size": 4016
+  },
+  "stevens.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Stevens_inst_tech_textlogo.png",
+    "file": "stevens.edu.hd.png",
+    "size": 32979
+  },
+  "drexel.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/61/Drexel-logo.png",
+    "file": "drexel.edu.hd.png",
+    "size": 107177
+  },
+  "rose-hulman.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Rose-Hulman_logo_2016.png",
+    "file": "rose-hulman.edu.hd.png",
+    "size": 40689
+  },
+  "unh.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/65/University_of_New_Hampshire_logo.svg",
+    "file": "unh.edu.hd.svg",
+    "size": 20125
+  },
+  "vt.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Virginia_Tech_logo.svg",
+    "file": "vt.edu.hd.svg",
+    "size": 6645
+  },
+  "tulane.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/77/Tulane_University_Logo.svg",
+    "file": "tulane.edu.hd.svg",
+    "size": 5498
+  },
+  "brandeis.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/15/Brandeis_University_Logo.png",
+    "file": "brandeis.edu.hd.png",
+    "size": 8455
+  },
+  "nyu.edu": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/16/New_York_University_Seal.svg",
+    "file": "nyu.edu.hd.svg",
+    "size": 89822
+  },
+  "mtu.edu": {
+    "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/10/Seal_of_Michigan_Technological_University.svg/960px-Seal_of_Michigan_Technological_University.svg.png",
+    "file": "mtu.edu.hd.png",
+    "size": 256604
+  },
+  "clemson.edu": {
+    "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/47/Clemson_University_Wordmark.svg/960px-Clemson_University_Wordmark.svg.png",
+    "file": "clemson.edu.hd.png",
+    "size": 37098
+  },
+  "emory.edu": {
+    "url": "https://brand.emory.edu/_includes/images/site-wide/eulogo-horiz.svg",
+    "file": "emory.edu.hd.svg",
+    "size": 13958,
+    "dimensions": null
+  },
+  "nmt.edu": {
+    "url": "https://www.nmt.edu/mac/img/nmt-logo-techieblue.png",
+    "file": "nmt.edu.hd.png",
+    "size": 9565,
+    "dimensions": [
+      350,
+      88
+    ]
+  },
+  "wm.edu": {
+    "url": "https://www.wm.edu/images/wm_logo_horizontal_green_gold.svg",
+    "file": "wm.edu.hd.svg",
+    "size": 6333,
+    "dimensions": null
+  },
+  "rossprogram.org": {
+    "url": "https://rossprogram.org/apple-touch-icon.png",
+    "file": "rossprogram.org.hd.png",
+    "size": 6783,
+    "dimensions": [
+      152,
+      152
+    ]
+  },
+  "mathcamp.org": {
+    "url": "https://mathcamp.org/files/images/favicons/apple-touch-icon-152x152.png",
+    "file": "mathcamp.org.hd.png",
+    "size": 1619,
+    "dimensions": [
+      152,
+      152
+    ]
+  },
+  "awesomemath.org": {
+    "url": "https://www.awesomemath.org/wp-content/uploads/awesomemath_logo-300x300.png",
+    "file": "awesomemath.org.hd.png",
+    "size": 30000,
+    "dimensions": [
+      300,
+      300
+    ]
+  },
+  "theadroitjournal.org": {
+    "url": "https://theadroitjournal.org/wp-content/uploads/2018/10/logo.png",
+    "file": "theadroitjournal.org.hd.png",
+    "size": 59820,
+    "dimensions": [
+      1500,
+      750
+    ]
+  },
+  "uiowa.edu": {
+    "url": "https://brand.uiowa.edu/sites/brand.uiowa.edu/files/2025-01/IOWA-BlockIOWALogo.zip#IOWA-BlockIOWALogo-EPS-PNG/Block-IOWA-BLACK.png",
+    "file": "uiowa.edu.hd.png",
+    "size": 11294
+  },
+  "babson.edu": {
+    "url": "https://www.babson.edu/media/babson/assets/logos/PRIMARY-Babson-College-Tier1-Wordmark.zip#PRIMARY-Babson College Tier 1 Wordmark/BabsonWordmark-Stacked/BabsonWordmark-S-black.svg",
+    "file": "babson.edu.hd.svg",
+    "size": 2860
+  },
+  "bentley.edu": {
+    "url": "https://d2f5upgbvkx8pz.cloudfront.net/sites/default/files/inline-files/Bentley_Logo_Vertical_Centered_Blue.png",
+    "file": "bentley.edu.hd.png",
+    "size": 94501
+  },
+  "stonybrook.edu": {
+    "url": "https://www.stonybrook.edu/marcom/_media/SBU_PrimaryUniversity_logo_DIGITAL.zip#SBU_PrimaryUniversity_logo_DIGITAL/72ppi/SBU-horz_2clr_rgb_72ppi.png",
+    "file": "stonybrook.edu.hd.png",
+    "size": 12759
+  },
+  "adelphi.edu": {
+    "url": "https://www.adelphi.edu/brand/wp-content/uploads/sites/55/2020/10/Adelphi-Primary-Logo.zip#PNG/Adelphi_Wordmark_gold.png",
+    "file": "adelphi.edu.hd.png",
+    "size": 59405
+  },
+  "miamioh.edu": {
+    "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Miami_University_logo_2021.svg",
+    "file": "miamioh.edu.hd.svg",
+    "size": 14513
+  },
+  "marist.edu": {
+    "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Marist_College_wordmark.svg",
+    "file": "marist.edu.hd.svg",
+    "size": 2978
+  },
+  "lehigh.edu": {
+    "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Lehigh_University_text.png",
+    "file": "lehigh.edu.hd.png",
+    "size": 9968
+  },
+  "depauw.edu": {
+    "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Depauw_univ_textlogo.png",
+    "file": "depauw.edu.hd.png",
+    "size": 30312
+  },
+  "smith.edu": {
+    "url": "https://www.smith.edu/themes/custom/smith/assets/images/smith-logo-orig.svg",
+    "file": "smith.edu.hd.svg",
+    "size": 19044
+  },
+  "ssp.org": {
+    "url": "https://ssp.org/wp-content/uploads/2025/01/logo.svg",
+    "file": "ssp.org.hd.svg",
+    "size": 13194
+  },
+  "uconn.edu": {
+    "url": "https://uconn.edu/wp-content/uploads/2019/02/uconn-wordmark-stacked-white.svg",
+    "file": "uconn.edu.hd.svg",
+    "size": 5547
+  },
+  "rockefeller.edu": {
+    "url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Rockefeller_University_logo.png",
+    "file": "rockefeller.edu.hd.png",
+    "size": 78730
+  },
+  "sewanee.edu": {
+    "url": "https://new.sewanee.edu/images/logo-schema.png",
+    "file": "sewanee.edu.hd.png",
+    "size": 22786
+  },
+  "barnard.edu": {
+    "url": "https://barnard.edu/sites/default/files/barnard-logo2.png",
+    "file": "barnard.edu.hd.png",
+    "size": 9392,
+    "type": "PNG image data, 800 x 112, 8-bit/color RGBA, non-interlaced"
+  },
+  "fte.org": {
+    "url": "https://fte.org/wp-content/uploads/cropped-tlp_headerlogo.png",
+    "file": "fte.org.hd.png",
+    "size": 5814,
+    "type": "PNG image data, 119 x 119, 8-bit colormap, non-interlaced"
+  },
+  "highpoint.edu": {
+    "url": "https://www.highpoint.edu/wp-content/themes/hpu/src/assets/images/logos/high-point-university-the-premiere-life-skills-university-white.png",
+    "file": "highpoint.edu.hd.png",
+    "size": 15299,
+    "type": "PNG image data, 1200 x 127, 8-bit colormap, non-interlaced"
+  },
+  "launchx.com": {
+    "url": "https://cdn.prod.website-files.com/64ccd6203afd959b043b2347/64d0f056542bc11ef8d795d9_Nav%20Logo%20V1.svg",
+    "file": "launchx.com.hd.svg",
+    "size": 3268,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "leangap.org": {
+    "url": "https://cdn.prod.website-files.com/69dd890e3123981de51b687e/69e1c591b29f5814122014fc_Logo.svg",
+    "file": "leangap.org.hd.svg",
+    "size": 3905,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "psu.edu": {
+    "url": "https://images.ctfassets.net/p7x3ai5plaz1/1wVBvFkhF0ArrdaMlzLiCi/125b0659267cacef241e88b5517a51eb/logotype.svg",
+    "file": "psu.edu.hd.svg",
+    "size": 2901,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "rochester.edu": {
+    "url": "https://www.rochester.edu/assets/images/brand/logos/primary_horizontal_navy.svg",
+    "file": "rochester.edu.hd.svg",
+    "size": 12554,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "tufts.edu": {
+    "url": "https://www.tufts.edu/themes/custom/tuftsedu_theme/logo.svg",
+    "file": "tufts.edu.hd.svg",
+    "size": 28094,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "umd.edu": {
+    "url": "https://umd-main.files.svdcdn.com/production/umd/logos/default/primary-logo-dark.svg",
+    "file": "umd.edu.hd.svg",
+    "size": 12736,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "uvm.edu": {
+    "url": "https://www.uvm.edu/themes/custom/uvm_theme/images/svg/uvm-logo-white.svg",
+    "file": "uvm.edu.hd.svg",
+    "size": 23352,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "washu.edu": {
+    "url": "https://washu.edu/app/themes/antipasto/assets/img/favicon/safari-pinned-tab.svg",
+    "file": "washu.edu.hd.svg",
+    "size": 7152,
+    "type": "SVG Scalable Vector Graphics image"
+  },
+  "promys.org": {
+    "url": "https://promys.org/wp-content/uploads/2023/05/Promys-web.png",
+    "file": "promys.org.hd.png",
+    "size": 63339,
+    "type": "PNG image data, 1012 x 220, 8-bit/color RGBA, non-interlaced"
+  },
+  "mathily.org": {
+    "url": "https://mathily.org/MathIlylogo.jpg",
+    "file": "mathily.org.hd.jpg",
+    "size": 147885,
+    "type": "JPEG image data, JFIF standard 1.01, resolution (DPI), density 150x150, segment length 16, Exif Standard: [TIFF image data, big-endian, direntries=4, xresolution=62, yresolution=70, resolutionunit=2], baseline, precision 8, 792x370, components 3"
+  },
+  "kenyonreview.org": {
+    "url": "https://kenyonreview.org/wp-content/themes/kenyonreview/img/svg/logo.svg",
+    "file": "kenyonreview.org.hd.svg",
+    "size": 6458,
+    "type": "SVG Scalable Vector Graphics image"
+  }
+}

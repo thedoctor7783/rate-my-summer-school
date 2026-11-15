@@ -1,0 +1,1297 @@
+[
+  {
+    "domain": "adelphi.edu",
+    "file": "assets/images/school-logos/adelphi.edu.png",
+    "bytes": 6269,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "alfred.edu",
+    "file": "assets/images/school-logos/alfred.edu.png",
+    "bytes": 3267,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "american.edu",
+    "file": "assets/images/school-logos/american.edu.png",
+    "bytes": 3077,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "arizona.edu",
+    "file": "assets/images/school-logos/arizona.edu.png",
+    "bytes": 3503,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "asu.edu",
+    "file": "assets/images/school-logos/asu.edu.png",
+    "bytes": 775,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "auburn.edu",
+    "file": "assets/images/school-logos/auburn.edu.png",
+    "bytes": 8249,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "awesomemath.org",
+    "file": "assets/images/school-logos/awesomemath.org.png",
+    "bytes": 665,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "babson.edu",
+    "file": "assets/images/school-logos/babson.edu.png",
+    "bytes": 593,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "bankofamerica.com",
+    "file": "assets/images/school-logos/bankofamerica.com.png",
+    "bytes": 2420,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "barnard.edu",
+    "file": "assets/images/school-logos/barnard.edu.png",
+    "bytes": 5778,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "bc.edu",
+    "file": "assets/images/school-logos/bc.edu.png",
+    "bytes": 1116,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "bentley.edu",
+    "file": "assets/images/school-logos/bentley.edu.png",
+    "bytes": 527,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "berkeley.edu",
+    "file": "assets/images/school-logos/berkeley.edu.png",
+    "bytes": 4023,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "bgsu.edu",
+    "file": "assets/images/school-logos/bgsu.edu.png",
+    "bytes": 1178,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "brandeis.edu",
+    "file": "assets/images/school-logos/brandeis.edu.png",
+    "bytes": 2716,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "brown.edu",
+    "file": "assets/images/school-logos/brown.edu.png",
+    "bytes": 2444,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "brynmawr.edu",
+    "file": "assets/images/school-logos/brynmawr.edu.png",
+    "bytes": 1434,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "bsu.edu",
+    "file": "assets/images/school-logos/bsu.edu.png",
+    "bytes": 813,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "bu.edu",
+    "file": "assets/images/school-logos/bu.edu.png",
+    "bytes": 349,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "bucknell.edu",
+    "file": "assets/images/school-logos/bucknell.edu.png",
+    "bytes": 1355,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "butler.edu",
+    "file": "assets/images/school-logos/butler.edu.png",
+    "bytes": 7838,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "byu.edu",
+    "file": "assets/images/school-logos/byu.edu.png",
+    "bytes": 2214,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "caltech.edu",
+    "file": "assets/images/school-logos/caltech.edu.png",
+    "bytes": 3651,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "cambridge-research.org",
+    "file": "assets/images/school-logos/cambridge-research.org.png",
+    "bytes": 5069,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "case.edu",
+    "file": "assets/images/school-logos/case.edu.png",
+    "bytes": 686,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "cee.org",
+    "file": "assets/images/school-logos/cee.org.png",
+    "bytes": 2824,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "clemson.edu",
+    "file": "assets/images/school-logos/clemson.edu.png",
+    "bytes": 400,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "cmu.edu",
+    "file": "assets/images/school-logos/cmu.edu.png",
+    "bytes": 431,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "cofc.edu",
+    "file": "assets/images/school-logos/cofc.edu.png",
+    "bytes": 5377,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "colorado.edu",
+    "file": "assets/images/school-logos/colorado.edu.png",
+    "bytes": 2298,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "columbia.edu",
+    "file": "assets/images/school-logos/columbia.edu.png",
+    "bytes": 1373,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "conncoll.edu",
+    "file": "assets/images/school-logos/conncoll.edu.png",
+    "bytes": 14338,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "cornell.edu",
+    "file": "assets/images/school-logos/cornell.edu.png",
+    "bytes": 4530,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "davidson.edu",
+    "file": "assets/images/school-logos/davidson.edu.png",
+    "bytes": 6438,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "depaul.edu",
+    "file": "assets/images/school-logos/depaul.edu.png",
+    "bytes": 2882,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "depauw.edu",
+    "file": "assets/images/school-logos/depauw.edu.png",
+    "bytes": 1174,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "drake.edu",
+    "file": "assets/images/school-logos/drake.edu.png",
+    "bytes": 2656,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "drexel.edu",
+    "file": "assets/images/school-logos/drexel.edu.png",
+    "bytes": 465,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "du.edu",
+    "file": "assets/images/school-logos/du.edu.png",
+    "bytes": 2132,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "duke.edu",
+    "file": "assets/images/school-logos/duke.edu.png",
+    "bytes": 2595,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ed.ac.uk",
+    "file": "assets/images/school-logos/ed.ac.uk.png",
+    "bytes": 2562,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "elon.edu",
+    "file": "assets/images/school-logos/elon.edu.png",
+    "bytes": 5724,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "emory.edu",
+    "file": "assets/images/school-logos/emory.edu.png",
+    "bytes": 5120,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "fairfield.edu",
+    "file": "assets/images/school-logos/fairfield.edu.png",
+    "bytes": 1181,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "fiu.edu",
+    "file": "assets/images/school-logos/fiu.edu.png",
+    "bytes": 356,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "fsu.edu",
+    "file": "assets/images/school-logos/fsu.edu.png",
+    "bytes": 548,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "fte.org",
+    "file": "assets/images/school-logos/fte.org.png",
+    "bytes": 3127,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "furman.edu",
+    "file": "assets/images/school-logos/furman.edu.png",
+    "bytes": 13076,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "gatech.edu",
+    "file": "assets/images/school-logos/gatech.edu.png",
+    "bytes": 1404,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "georgetown.edu",
+    "file": "assets/images/school-logos/georgetown.edu.png",
+    "bytes": 2366,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "gwu.edu",
+    "file": "assets/images/school-logos/gwu.edu.png",
+    "bytes": 1407,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "hampshire.edu",
+    "file": "assets/images/school-logos/hampshire.edu.png",
+    "bytes": 1235,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "harvard.edu",
+    "file": "assets/images/school-logos/harvard.edu.png",
+    "bytes": 15508,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "highpoint.edu",
+    "file": "assets/images/school-logos/highpoint.edu.png",
+    "bytes": 5485,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "hku.hk",
+    "file": "assets/images/school-logos/hku.hk.png",
+    "bytes": 27888,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "hkust.edu.hk",
+    "file": "assets/images/school-logos/hkust.edu.hk.png",
+    "bytes": 17837,
+    "ok": true,
+    "source": "www.google.com"
+  },
+  {
+    "domain": "hofstra.edu",
+    "file": "assets/images/school-logos/hofstra.edu.png",
+    "bytes": 3326,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "iastate.edu",
+    "file": "assets/images/school-logos/iastate.edu.png",
+    "bytes": 399,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "iit.edu",
+    "file": "assets/images/school-logos/iit.edu.png",
+    "bytes": 435,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "immerse.education",
+    "file": "assets/images/school-logos/immerse.education.png",
+    "bytes": 1566,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "imperial.ac.uk",
+    "file": "assets/images/school-logos/imperial.ac.uk.png",
+    "bytes": 287,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "indiana.edu",
+    "file": "assets/images/school-logos/indiana.edu.png",
+    "bytes": 1141,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ithaca.edu",
+    "file": "assets/images/school-logos/ithaca.edu.png",
+    "bytes": 2889,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "jhu.edu",
+    "file": "assets/images/school-logos/jhu.edu.png",
+    "bytes": 11444,
+    "ok": true,
+    "source": "www.google.com"
+  },
+  {
+    "domain": "kcl.ac.uk",
+    "file": "assets/images/school-logos/kcl.ac.uk.png",
+    "bytes": 701,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "kent.edu",
+    "file": "assets/images/school-logos/kent.edu.png",
+    "bytes": 1663,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "kenyon.edu",
+    "file": "assets/images/school-logos/kenyon.edu.png",
+    "bytes": 1771,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ksu.edu",
+    "file": "assets/images/school-logos/ksu.edu.png",
+    "bytes": 673,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ku.edu",
+    "file": "assets/images/school-logos/ku.edu.png",
+    "bytes": 402,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "launchx.com",
+    "file": "assets/images/school-logos/launchx.com.png",
+    "bytes": 23021,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "leangap.org",
+    "file": "assets/images/school-logos/leangap.org.png",
+    "bytes": 1768,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "lehigh.edu",
+    "file": "assets/images/school-logos/lehigh.edu.png",
+    "bytes": 20663,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "louisville.edu",
+    "file": "assets/images/school-logos/louisville.edu.png",
+    "bytes": 183,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "loyno.edu",
+    "file": "assets/images/school-logos/loyno.edu.png",
+    "bytes": 418,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "lsu.edu",
+    "file": "assets/images/school-logos/lsu.edu.png",
+    "bytes": 257,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "luc.edu",
+    "file": "assets/images/school-logos/luc.edu.png",
+    "bytes": 674,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "marist.edu",
+    "file": "assets/images/school-logos/marist.edu.png",
+    "bytes": 2897,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "maryville.edu",
+    "file": "assets/images/school-logos/maryville.edu.png",
+    "bytes": 3386,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "mathcamp.org",
+    "file": "assets/images/school-logos/mathcamp.org.png",
+    "bytes": 1889,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "miami.edu",
+    "file": "assets/images/school-logos/miami.edu.png",
+    "bytes": 946,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "miamioh.edu",
+    "file": "assets/images/school-logos/miamioh.edu.png",
+    "bytes": 1996,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "missouri.edu",
+    "file": "assets/images/school-logos/missouri.edu.png",
+    "bytes": 714,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "mit.edu",
+    "file": "assets/images/school-logos/mit.edu.png",
+    "bytes": 1937,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "msu.edu",
+    "file": "assets/images/school-logos/msu.edu.png",
+    "bytes": 5459,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "mtu.edu",
+    "file": "assets/images/school-logos/mtu.edu.png",
+    "bytes": 10533,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ncsu.edu",
+    "file": "assets/images/school-logos/ncsu.edu.png",
+    "bytes": 8578,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "nd.edu",
+    "file": "assets/images/school-logos/nd.edu.png",
+    "bytes": 2590,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "newhaven.edu",
+    "file": "assets/images/school-logos/newhaven.edu.png",
+    "bytes": 2416,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "nmt.edu",
+    "file": "assets/images/school-logos/nmt.edu.png",
+    "bytes": 514,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "northwestern.edu",
+    "file": "assets/images/school-logos/northwestern.edu.png",
+    "bytes": 1171,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "nus.edu",
+    "file": "assets/images/school-logos/nus.edu.png",
+    "bytes": 809,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "nytimes.com",
+    "file": "assets/images/school-logos/nytimes.com.png",
+    "bytes": 1845,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "nyu.edu",
+    "file": "assets/images/school-logos/nyu.edu.png",
+    "bytes": 284,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ohio.edu",
+    "file": "assets/images/school-logos/ohio.edu.png",
+    "bytes": 348,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "okstate.edu",
+    "file": "assets/images/school-logos/okstate.edu.png",
+    "bytes": 9717,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "oregonstate.edu",
+    "file": "assets/images/school-logos/oregonstate.edu.png",
+    "bytes": 1672,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "osu.edu",
+    "file": "assets/images/school-logos/osu.edu.png",
+    "bytes": 407,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ou.edu",
+    "file": "assets/images/school-logos/ou.edu.png",
+    "bytes": 1056,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "oxford-royale.com",
+    "file": "assets/images/school-logos/oxford-royale.com.png",
+    "bytes": 9594,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "oxfordscholastica.com",
+    "file": "assets/images/school-logos/oxfordscholastica.com.png",
+    "bytes": 4920,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "pitt.edu",
+    "file": "assets/images/school-logos/pitt.edu.png",
+    "bytes": 3098,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "princeton.edu",
+    "file": "assets/images/school-logos/princeton.edu.png",
+    "bytes": 10934,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "psu.edu",
+    "file": "assets/images/school-logos/psu.edu.png",
+    "bytes": 6109,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "purdue.edu",
+    "file": "assets/images/school-logos/purdue.edu.png",
+    "bytes": 1660,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "qu.edu",
+    "file": "assets/images/school-logos/qu.edu.png",
+    "bytes": 8113,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "reachcambridge.com",
+    "file": "assets/images/school-logos/reachcambridge.com.png",
+    "bytes": 8941,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "rice.edu",
+    "file": "assets/images/school-logos/rice.edu.png",
+    "bytes": 3824,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "richmond.edu",
+    "file": "assets/images/school-logos/richmond.edu.png",
+    "bytes": 7788,
+    "ok": true,
+    "source": "www.google.com"
+  },
+  {
+    "domain": "rit.edu",
+    "file": "assets/images/school-logos/rit.edu.png",
+    "bytes": 1631,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "rochester.edu",
+    "file": "assets/images/school-logos/rochester.edu.png",
+    "bytes": 6377,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "rockefeller.edu",
+    "file": "assets/images/school-logos/rockefeller.edu.png",
+    "bytes": 2371,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "rose-hulman.edu",
+    "file": "assets/images/school-logos/rose-hulman.edu.png",
+    "bytes": 873,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "rossprogram.org",
+    "file": "assets/images/school-logos/rossprogram.org.png",
+    "bytes": 2127,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "rpi.edu",
+    "file": "assets/images/school-logos/rpi.edu.png",
+    "bytes": 1999,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "rutgers.edu",
+    "file": "assets/images/school-logos/rutgers.edu.png",
+    "bytes": 4814,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "sewanee.edu",
+    "file": "assets/images/school-logos/sewanee.edu.png",
+    "bytes": 25182,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "skidmore.edu",
+    "file": "assets/images/school-logos/skidmore.edu.png",
+    "bytes": 664,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "slc.edu",
+    "file": "assets/images/school-logos/slc.edu.png",
+    "bytes": 3939,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "slu.edu",
+    "file": "assets/images/school-logos/slu.edu.png",
+    "bytes": 9523,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "smith.edu",
+    "file": "assets/images/school-logos/smith.edu.png",
+    "bytes": 4205,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ssp.org",
+    "file": "assets/images/school-logos/ssp.org.png",
+    "bytes": 6614,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "stanford.edu",
+    "file": "assets/images/school-logos/stanford.edu.png",
+    "bytes": 15035,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "stevens.edu",
+    "file": "assets/images/school-logos/stevens.edu.png",
+    "bytes": 8515,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "stonybrook.edu",
+    "file": "assets/images/school-logos/stonybrook.edu.png",
+    "bytes": 20314,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "syr.edu",
+    "file": "assets/images/school-logos/syr.edu.png",
+    "bytes": 1605,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "tellurideassociation.org",
+    "file": "assets/images/school-logos/tellurideassociation.org.png",
+    "bytes": 1928,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "theadroitjournal.org",
+    "file": "assets/images/school-logos/theadroitjournal.org.png",
+    "bytes": 6761,
+    "ok": true,
+    "source": "www.google.com"
+  },
+  {
+    "domain": "ttu.edu",
+    "file": "assets/images/school-logos/ttu.edu.png",
+    "bytes": 2348,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "tufts.edu",
+    "file": "assets/images/school-logos/tufts.edu.png",
+    "bytes": 2697,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "tulane.edu",
+    "file": "assets/images/school-logos/tulane.edu.png",
+    "bytes": 3218,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ua.edu",
+    "file": "assets/images/school-logos/ua.edu.png",
+    "bytes": 2346,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ubc.ca",
+    "file": "assets/images/school-logos/ubc.ca.png",
+    "bytes": 1065,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uc.edu",
+    "file": "assets/images/school-logos/uc.edu.png",
+    "bytes": 1327,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ucdavis.edu",
+    "file": "assets/images/school-logos/ucdavis.edu.png",
+    "bytes": 272,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ucf.edu",
+    "file": "assets/images/school-logos/ucf.edu.png",
+    "bytes": 7769,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uchicago.edu",
+    "file": "assets/images/school-logos/uchicago.edu.png",
+    "bytes": 4619,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uci.edu",
+    "file": "assets/images/school-logos/uci.edu.png",
+    "bytes": 1445,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ucla.edu",
+    "file": "assets/images/school-logos/ucla.edu.png",
+    "bytes": 429,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uconn.edu",
+    "file": "assets/images/school-logos/uconn.edu.png",
+    "bytes": 6784,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ucsb.edu",
+    "file": "assets/images/school-logos/ucsb.edu.png",
+    "bytes": 370,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ucsc.edu",
+    "file": "assets/images/school-logos/ucsc.edu.png",
+    "bytes": 5117,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ucsd.edu",
+    "file": "assets/images/school-logos/ucsd.edu.png",
+    "bytes": 1574,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "udel.edu",
+    "file": "assets/images/school-logos/udel.edu.png",
+    "bytes": 2570,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "ufl.edu",
+    "file": "assets/images/school-logos/ufl.edu.png",
+    "bytes": 457,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uga.edu",
+    "file": "assets/images/school-logos/uga.edu.png",
+    "bytes": 2039,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uh.edu",
+    "file": "assets/images/school-logos/uh.edu.png",
+    "bytes": 504,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uiowa.edu",
+    "file": "assets/images/school-logos/uiowa.edu.png",
+    "bytes": 419,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uiuc.edu",
+    "file": "assets/images/school-logos/uiuc.edu.png",
+    "bytes": 1266,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "umaine.edu",
+    "file": "assets/images/school-logos/umaine.edu.png",
+    "bytes": 15356,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "umass.edu",
+    "file": "assets/images/school-logos/umass.edu.png",
+    "bytes": 2745,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "umd.edu",
+    "file": "assets/images/school-logos/umd.edu.png",
+    "bytes": 2800,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "umich.edu",
+    "file": "assets/images/school-logos/umich.edu.png",
+    "bytes": 3224,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "unc.edu",
+    "file": "assets/images/school-logos/unc.edu.png",
+    "bytes": 5638,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "unca.edu",
+    "file": "assets/images/school-logos/unca.edu.png",
+    "bytes": 12645,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uncc.edu",
+    "file": "assets/images/school-logos/uncc.edu.png",
+    "bytes": 5462,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uncg.edu",
+    "file": "assets/images/school-logos/uncg.edu.png",
+    "bytes": 2718,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "unh.edu",
+    "file": "assets/images/school-logos/unh.edu.png",
+    "bytes": 6568,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "union.edu",
+    "file": "assets/images/school-logos/union.edu.png",
+    "bytes": 1137,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "unl.edu",
+    "file": "assets/images/school-logos/unl.edu.png",
+    "bytes": 2774,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "unm.edu",
+    "file": "assets/images/school-logos/unm.edu.png",
+    "bytes": 1054,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uoregon.edu",
+    "file": "assets/images/school-logos/uoregon.edu.png",
+    "bytes": 2672,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "upenn.edu",
+    "file": "assets/images/school-logos/upenn.edu.png",
+    "bytes": 16033,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "usc.edu",
+    "file": "assets/images/school-logos/usc.edu.png",
+    "bytes": 2432,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "usf.edu",
+    "file": "assets/images/school-logos/usf.edu.png",
+    "bytes": 1254,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "utah.edu",
+    "file": "assets/images/school-logos/utah.edu.png",
+    "bytes": 500,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "utexas.edu",
+    "file": "assets/images/school-logos/utexas.edu.png",
+    "bytes": 3065,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "utoronto.ca",
+    "file": "assets/images/school-logos/utoronto.ca.png",
+    "bytes": 3252,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uvm.edu",
+    "file": "assets/images/school-logos/uvm.edu.png",
+    "bytes": 12523,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uw.edu",
+    "file": "assets/images/school-logos/uw.edu.png",
+    "bytes": 280,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "uwyo.edu",
+    "file": "assets/images/school-logos/uwyo.edu.png",
+    "bytes": 1466,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "vanderbilt.edu",
+    "file": "assets/images/school-logos/vanderbilt.edu.png",
+    "bytes": 1089,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "vassar.edu",
+    "file": "assets/images/school-logos/vassar.edu.png",
+    "bytes": 323,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "vcu.edu",
+    "file": "assets/images/school-logos/vcu.edu.png",
+    "bytes": 3511,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "virginia.edu",
+    "file": "assets/images/school-logos/virginia.edu.png",
+    "bytes": 1923,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "vt.edu",
+    "file": "assets/images/school-logos/vt.edu.png",
+    "bytes": 413,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "warwick.ac.uk",
+    "file": "assets/images/school-logos/warwick.ac.uk.png",
+    "bytes": 10289,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "wfu.edu",
+    "file": "assets/images/school-logos/wfu.edu.png",
+    "bytes": 2053,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "wisc.edu",
+    "file": "assets/images/school-logos/wisc.edu.png",
+    "bytes": 887,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "wku.edu",
+    "file": "assets/images/school-logos/wku.edu.png",
+    "bytes": 650,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "wlu.edu",
+    "file": "assets/images/school-logos/wlu.edu.png",
+    "bytes": 581,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "wm.edu",
+    "file": "assets/images/school-logos/wm.edu.png",
+    "bytes": 3183,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "wpi.edu",
+    "file": "assets/images/school-logos/wpi.edu.png",
+    "bytes": 564,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "wustl.edu",
+    "file": "assets/images/school-logos/wustl.edu.png",
+    "bytes": 9602,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "xula.edu",
+    "file": "assets/images/school-logos/xula.edu.png",
+    "bytes": 6079,
+    "ok": true,
+    "source": "existing"
+  },
+  {
+    "domain": "yale.edu",
+    "file": "assets/images/school-logos/yale.edu.png",
+    "bytes": 1553,
+    "ok": true,
+    "source": "existing"
+  }
+]
