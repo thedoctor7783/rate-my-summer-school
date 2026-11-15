@@ -51,7 +51,6 @@ const State = {
   matchmaker: null,
   picker: { query: '', subjects: new Set(), methods: new Set(), filtersOpen: false, fromFinder: false },
   guided: { step: 1, subjects: new Set(), methods: new Set(), expandedSubjects: false, expandedMethods: false },
-  rankingsPreview: null,
 };
 
 function load() {
@@ -1240,7 +1239,6 @@ function renderLanding() {
     : ['Let’s find', 'your kind', 'of summer.'];
   const hasProgress = State.survey && State.survey.answers && Object.values(State.survey.answers).some(a => Object.keys(a).length);
   const program = hasProgress ? programById(State.survey.programId) : null;
-  const previewProgram = programById('catalog-002-harvard-secondary-school-program');
   const experienceModules = [
     { route:'academics', title:'landingFeatureAcademics', question:'landingFeatureAcademicsQuestion', icon:'<path d="M3 5.5c3-1.5 6-1.5 9 0 3-1.5 6-1.5 9 0V20c-3-1.5-6-1.5-9 0-3-1.5-6-1.5-9 0Z"/><path d="M12 5.5V20"/>' },
     { route:'students', title:'landingFeatureStudentLife', question:'landingFeatureStudentLifeQuestion', icon:'<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/>' },
@@ -1749,14 +1747,12 @@ function renderProgram(id) {
   const lang = L();
   const p = programById(id);
   const d = programDisplayDetails(p, (PROGRAM_DETAILS && PROGRAM_DETAILS[id]) || {}, lang);
-  const storedReviews = window.SSDB.getReviews(id);
-  const useProgramSampleData = programSampleMode(id);
-  const reviews = storedReviews.length || !useProgramSampleData ? storedReviews : sampleProgramReviews(p, lang);
+  const reviews = window.SSDB.getReviews(id);
   const user = window.SSDB.currentUser();
   const myAnswers = (State.survey && State.survey.programId === id) ? State.survey.answers : null;
   const isProvisionalListing = p.catalogStatus === 'spreadsheet-provisional';
   const isPausedListing = p.catalogStatus === 'paused';
-  const isDiscoveryListing = !pagePreviewMode() && ['official-source-listed', 'spreadsheet-provisional', 'paused'].includes(p.catalogStatus);
+  const isDiscoveryListing = ['official-source-listed', 'spreadsheet-provisional', 'paused'].includes(p.catalogStatus);
   const hasOfficialProgramSource = !!(p.source && p.source.officialUrl);
   const verifiedFacts = officialProgramFacts(id, lang);
   const listingLabel = isPausedListing
@@ -1779,15 +1775,14 @@ function renderProgram(id) {
   const listingLinkLabel = hasOfficialProgramSource
     ? (lang === 'zh' ? '查看项目官网' : 'View official program page')
     : (lang === 'zh' ? '查看学校官网' : 'View school website');
-  const previewOverall = pagePreviewMode() && !Number(p.overall)
-    ? stableProgramNumber(id, 37, 48) / 10 : Number(p.overall || 0);
-  const previewReviewCount = reviews.length || (pagePreviewMode() ? stableProgramNumber(id, 18, 96) : 0);
+  const previewOverall = Number(p.overall || 0);
+  const previewReviewCount = reviews.length;
 
   // very simple topical bucketing of reviews (keyword match)
-  const academicsReviews  = reviews.filter(r => r.sampleSection ? r.sampleSection === 'academics' : /professor|instructor|class |academ|lecture|study|course|课程|课堂|老师|学术/i.test(r.text || ''));
-  const lifeReviews       = reviews.filter(r => r.sampleSection ? r.sampleSection === 'students' : /life|friend|social|community|cohort|classmate|peer|belong|roommate|event|club|hang|同学|社群|社交|学生生活/i.test(r.text || ''));
-  const gotOutReviews     = reviews.filter(r => r.sampleSection ? r.sampleSection === 'outcomes' : /learn|skill|growth|experience|value|recommend|impact|change|future|career|confiden|help|benefit|takeaway|outcome|what you got|项目结束|项目收获|更清楚|信心/i.test(r.text || ''));
-  const campusReviews     = reviews.filter(r => r.sampleSection ? r.sampleSection === 'campus' : /campus|dorm|housing|food|facilit|safe|facility|room|resident|dining|cafeteria|laundry|校园|教室|学习空间|宿舍/i.test(r.text || ''));
+  const academicsReviews  = reviews.filter(r => /professor|instructor|class |academ|lecture|study|course|课程|课堂|老师|学术/i.test(r.text || ''));
+  const lifeReviews       = reviews.filter(r => /life|friend|social|community|cohort|classmate|peer|belong|roommate|event|club|hang|同学|社群|社交|学生生活/i.test(r.text || ''));
+  const gotOutReviews     = reviews.filter(r => /learn|skill|growth|experience|value|recommend|impact|change|future|career|confiden|help|benefit|takeaway|outcome|what you got|项目结束|项目收获|更清楚|信心/i.test(r.text || ''));
+  const campusReviews     = reviews.filter(r => /campus|dorm|housing|food|facilit|safe|facility|room|resident|dining|cafeteria|laundry|校园|教室|学习空间|宿舍/i.test(r.text || ''));
 
   const reviewCard = (r) => `
     <div class="review-card">
@@ -1798,8 +1793,7 @@ function renderProgram(id) {
           <div class="mini-stars">${'★'.repeat(r.stars||0)}${'☆'.repeat(5-(r.stars||0))}</div>
         </div>
         <p>${esc(r.text || '')}</p>
-        ${r.sample ? `<span class="sample-review-label">${esc(lang === 'zh' ? '示例评价' : 'SAMPLE REVIEW')}</span>` : ''}
-        ${user && !r.sample ? `<div style="margin-top:6px"><button class="btn btn--ghost" data-del-review="${esc(r.id)}">${lang==='zh'?'删除':'Delete'}</button></div>` : ''}
+        ${user ? `<div style="margin-top:6px"><button class="btn btn--ghost" data-del-review="${esc(r.id)}">${lang==='zh'?'删除':'Delete'}</button></div>` : ''}
       </div>
     </div>`;
 
@@ -1865,7 +1859,6 @@ function renderProgram(id) {
               <div class="stars-lg"><span class="stars-precise" style="--pct:${(previewOverall/5)*100}%;font-size:24px" aria-label="${previewOverall.toFixed(1)} of 5"></span></div>
               <div class="sub">${previewReviewCount} ${esc(t('profileReviewCount', lang))}</div>
               ${verifiedFacts && verifiedFacts.acceptance ? `<div class="sub" style="margin-top:6px">${esc(t('profileAcceptance', lang))}: ${esc(verifiedFacts.acceptance.value)}</div>` : ''}
-              ${pagePreviewMode() && !Number(p.overall) ? `<span class="sample-review-label">${esc(lang === 'zh' ? '示例预览' : 'SAMPLE PREVIEW')}</span>` : ''}
             `}
           </div>
         </div>
@@ -1978,68 +1971,9 @@ function infoItem(label, valueHTML, wide) {
       <div class="info-item__value">${valueHTML}</div>
     </div>`;
 }
-function pagePreviewMode() {
-  try { return new URLSearchParams(window.location.search).get('previewData') === '1'; }
-  catch (e) { return false; }
-}
-function programSampleMode(id) {
-  return pagePreviewMode() || id === 'ucsb-pre' || id === 'catalog-002-harvard-secondary-school-program';
-}
-function stableProgramNumber(id, min, max) {
-  let hash = 2166136261;
-  String(id || '').split('').forEach(function (character) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  });
-  return min + ((hash >>> 0) % (max - min + 1));
-}
 function shortProgramName(program) {
   const name = pickL(program.name) || pickL(program.host) || 'this program';
   return name.replace(/\s*\([^)]*\)\s*$/, '').replace(/\b(programs?|summer school|summer program)\b/ig, '').trim() || name;
-}
-function sampleProgramReviews(program, lang) {
-  const ucsbEntries = lang === 'zh' ? [
-    ['小组研究和导师反馈让课程很有挑战性。我在结课展示前学会了怎样把研究问题变成清晰的论点。', '2026 届学生'],
-    ['住宿生活很有社群感。我通过宿舍公共空间和项目活动认识了其他研究方向的同学。', '2026 届住宿学生'],
-    ['校园整体很安全，宿舍到上课地点也方便。餐厅使用起来很省心，不过繁忙时段会比较拥挤。', '2026 届住宿学生'],
-    ['完成研究论文和展示是我最大的收获，也让我更有信心继续探索大学阶段的研究机会。', '2026 届学生'],
-    ['项目节奏很快，需要提前安排时间；如果你想体验密集的研究型学习，我会推荐。', '2026 届学生']
-  ] : [
-    ['The group research and mentor feedback were challenging in a good way. By the final presentation, I knew how to turn a research question into a clear argument.', 'Class of 2026'],
-    ['Residential life felt social. I met students from other research areas through the residence-hall common spaces and program activities.', '2026 residential student'],
-    ['The campus felt safe and it was easy to get from housing to class. Dining was convenient, though peak times could get crowded.', '2026 residential student'],
-    ['Finishing a research paper and presentation was my biggest takeaway, and it made me more confident about pursuing research in college.', 'Class of 2026'],
-    ['The pace was fast and required planning ahead; I would recommend it to students who want an intensive research-focused experience.', 'Class of 2026']
-  ];
-  const genericEntries = lang === 'zh' ? [
-    ['申请流程很清楚，文书题目也让我提前思考自己希望从项目中获得什么。', '2026 届学生'],
-    ['老师很投入，课程节奏有挑战，但小组讨论和项目作业让我真正理解了内容。', '2026 届住宿学生'],
-    ['学生社群很友好，课外活动和宿舍公共空间让大家很容易认识彼此。', '2026 届学生'],
-    ['校园生活整体方便且安全，餐饮和学习空间都能满足日常需要。', '2026 届住宿学生'],
-    ['项目结束后，我更确定了自己的学术方向，也保留了作品和几段持续至今的联系。', '2026 届学生']
-  ] : [
-    ['The application steps were clear, and the essays made me think carefully about what I wanted from the program.', 'Class of 2026'],
-    ['The instructors were engaged. The pace was challenging, but discussions and project work made the material click.', '2026 residential student'],
-    ['The cohort felt welcoming, and activities plus shared spaces made it easy to meet people outside class.', 'Class of 2026'],
-    ['Campus life felt convenient and safe; dining and study spaces covered what I needed day to day.', '2026 residential student'],
-    ['I left with a clearer academic direction, a finished project, and several connections that continued afterward.', 'Class of 2026']
-  ];
-  const harvardSspEntries = lang === 'zh' ? [
-    ['课程讨论让我更愿意在课堂上提出问题；老师的反馈也帮助我调整学习方式。', '学术体验 · 虚构示例'],
-    ['我在课后与同学聊天时逐渐熟悉了整个学生社群，和最初只认识同组同学的感觉很不一样。', '学生生活 · 虚构示例'],
-    ['校园里找教室和学习空间并不难，但繁忙的一天结束后我会想找一个安静的地方休息。', '校园生活 · 虚构示例'],
-    ['项目结束时，我更清楚自己喜欢怎样的课堂，也更有信心安排大学阶段的学习。', '项目收获 · 虚构示例']
-  ] : [
-    ['Class discussions made me more willing to ask questions, and instructor feedback helped me adjust how I studied.', 'Academics · fictional example'],
-    ['I got to know more of the cohort through conversations after class; at first I mostly knew the students in my own group.', 'Student Life · fictional example'],
-    ['Finding classrooms and study spaces felt straightforward, though after a full day I wanted a quiet place to recharge.', 'Campus Life · fictional example'],
-    ['By the end, I had a clearer sense of the classes I enjoy and more confidence planning for college-level study.', 'Program Takeaways · fictional example']
-  ];
-  const isHarvardSsp = program.id === 'catalog-002-harvard-secondary-school-program';
-  const entries = isHarvardSsp ? harvardSspEntries : program.id === 'ucsb-pre' ? ucsbEntries : genericEntries;
-  return entries.map(function (entry, index) {
-    return { id:'sample-' + program.id + '-' + index, author:isHarvardSsp ? (lang === 'zh' ? '示例学生' : 'Sample student') : index % 2 ? 'Jordan' : 'Alex', who:entry[1], stars:index === 3 ? 4 : 5, text:entry[0], sample:true, sampleSection:isHarvardSsp ? ['academics', 'students', 'campus', 'outcomes'][index] : null };
-  });
 }
 function programDisplayDetails(program, details, lang) {
   const existingAdmissions = details.admissions || {};
@@ -2902,7 +2836,7 @@ function studentLifeCopy(lang, id) {
     socialTitle: '归属感', socialBody: '学生对社区归属感的反馈。',
     activitiesTitle: '课余活动', activitiesBody: '这些是学生实际反馈项目在课余时间提供的活动；不同年份、批次和参与形式可能不同。',
     belongingDetail: '归属感', socializingDifficulty: '社交和交朋友的难度',
-    awaiting: '等待真实学生反馈', responses: studentLifePreviewMode(id) ? '份示例回答' : '份已验证回答', reported: '的学生提及',
+    awaiting: '等待真实学生反馈', responses: '份已验证回答', reported: '的学生提及',
     selections: '次选择', noActivities: '目前还没有经过验证的课余活动反馈。',
     glance: '学生生活概览', decisionEyebrow: '学生决策地图', decisionTitle: '我能想象自己在这里学习吗？',
     socialEase: '觉得交朋友比较容易', activitiesQuestion: '项目在课余时间提供了什么？',
@@ -2922,7 +2856,7 @@ function studentLifeCopy(lang, id) {
     socialTitle: 'Belonging', socialBody: 'How included students felt in the student community.',
     activitiesTitle: 'Free-time Activities', activitiesBody: 'Activities students reported the program offered outside class. Offerings may differ by year, session, track, and participation format.',
     belongingDetail: 'Sense of belonging', socializingDifficulty: 'Difficulty of socializing',
-    awaiting: 'Awaiting verified feedback', responses: studentLifePreviewMode(id) ? 'sample responses' : 'verified responses', reported: 'of students mentioned this',
+    awaiting: 'Awaiting verified feedback', responses: 'verified responses', reported: 'of students mentioned this',
     selections: 'selections', noActivities: 'There are not yet verified responses confirming free-time activities.',
     glance: 'Student Life at a glance', decisionEyebrow: 'A STUDENT DECISION MAP', decisionTitle: 'Can I picture myself studying here?',
     socialEase: 'Found it easy to socialize', activitiesQuestion: 'What did the program offer in students’ free time?',
@@ -2951,26 +2885,8 @@ function isDiscoveryProgram(id) {
   const program = programById(id);
   return !!(program && ['official-source-listed', 'spreadsheet-provisional', 'paused'].includes(program.catalogStatus));
 }
-function studentLifePreviewMode(id) {
-  if (id === 'ucsb-pre') return true;
-  // Harvard SSP is the dedicated four-section example. Never replace
-  // actual submitted survey results with the non-persistent preview data.
-  if (id === 'catalog-002-harvard-secondary-school-program') {
-    const live = window.SSDB.getAggregate(id);
-    const studentLifeKeys = ['life_rating', 'belonging', 'free_time', 'cohort_culture', 'typical_evening', 'weekday_free_time'];
-    if (studentLifeKeys.every(key => !(live[key] && (live[key].n || live[key].total)))) return true;
-  }
-  try { return new URLSearchParams(window.location.search).get('previewData') === '1'; }
-  catch (e) { return false; }
-}
-function studentLifePreviewNoticeHTML(lang, id) {
-  if (!studentLifePreviewMode(id)) return '';
-  return `<aside class="demo-data-notice demo-data-notice--compact"><strong>${esc(lang === 'zh' ? '示例预览' : 'SAMPLE PREVIEW')}</strong><span>${esc(lang === 'zh' ? '仅用虚构结果预览排版。' : 'Fictional results shown for layout only.')}</span></aside>`;
-}
 function studentLifeData(id) {
-  const agg = studentLifePreviewMode(id) && window.SSDB.getDemoAggregate
-    ? window.SSDB.getDemoAggregate(id)
-    : window.SSDB.getAggregate(id);
+  const agg = window.SSDB.getAggregate(id);
   return {
     agg: agg,
     rating: agg.life_rating,
@@ -3067,7 +2983,7 @@ function studentLifeOverviewCardsHTML(id, lang) {
   };
   const evening = topChoice(data.typicalEvening);
   const weekday = topChoice(data.weekdayFreeTime);
-  return `${studentLifePreviewNoticeHTML(lang, id)}<div class="student-life-overview-insights">
+  return `<div class="student-life-overview-insights">
     <article class="student-life-preview-card student-life-preview-card--culture">
       <p class="student-life-preview-card__eyebrow">${esc(copy.cohortPreview)}</p>
       ${cultureItems.length && data.culture.total ? `<div class="student-life-culture-chips">${cultureItems.map(function (item) {
@@ -3201,18 +3117,10 @@ function studentLifeChoiceSpotlightHTML(res, definitions, lang, emptyText) {
 function studentLifeReviewsHTML(id, lang) {
   const stored = window.SSDB.getReviews(id);
   let reviews = stored.filter(review => /life|friend|social|community|cohort|classmate|peer|belong|roommate|event|club|hang|free.time|evening|同学|社群|社交|学生生活|课余|朋友/i.test(review.text || ''));
-  const sample = id === 'catalog-002-harvard-secondary-school-program' && studentLifePreviewMode(id) && !stored.length;
-  if (sample) reviews = lang === 'zh' ? [
-    { author:'示例学生', who:'虚构示例', stars:5, text:'刚开始我只认识同组的人，后来在讨论和休息时间里逐渐结识了其他同学。小组交流是我最喜欢的部分。' },
-    { author:'示例学生', who:'虚构示例', stars:4, text:'课余有机会和同学一起参加活动；活动结束后的聊天，比活动本身更让我印象深刻。' }
-  ] : [
-    { author:'Sample student', who:'Fictional example', stars:5, text:'At first I mostly knew the people in my group. Discussions and breaks gradually helped me meet more students, and the smaller conversations became my favorite part.' },
-    { author:'Sample student', who:'Fictional example', stars:4, text:'I joined activities with classmates outside the scheduled sessions. The conversations afterward were more memorable to me than the activities themselves.' }
-  ];
   const cards = reviews.slice(0, 3).map(function (review) {
     const author = review.author || (lang === 'zh' ? '匿名' : 'Anonymous');
     const stars = Math.max(0, Math.min(5, Number(review.stars) || 0));
-    return `<article class="review-card"><div class="avatar">${esc(author.slice(0, 2).toUpperCase())}</div><div><div class="row row--between"><div><strong>${esc(author)}</strong> <span class="muted">· ${esc(review.who || '')}</span></div><div class="mini-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div></div>${sample ? `<span class="sample-review-label">${esc(lang === 'zh' ? '示例评价' : 'SAMPLE REVIEW')}</span>` : ''}<p>${esc(review.text || '')}</p></div></article>`;
+    return `<article class="review-card"><div class="avatar">${esc(author.slice(0, 2).toUpperCase())}</div><div><div class="row row--between"><div><strong>${esc(author)}</strong> <span class="muted">· ${esc(review.who || '')}</span></div><div class="mini-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div></div><p>${esc(review.text || '')}</p></div></article>`;
   }).join('');
   return `<section class="experience-reviews experience-reviews--students"><header class="experience-reviews__head"><p>${esc(lang === 'zh' ? '学生亲述' : 'IN THEIR OWN WORDS')}</p><h2>${esc(lang === 'zh' ? '学生生活评价' : 'Student Life Reviews')}</h2></header><div class="experience-reviews__grid">${cards || `<div class="experience-reviews__empty"><p>${esc(lang === 'zh' ? '暂时还没有学生生活评价。' : 'No student life reviews yet.')}</p><a href="${window.SSDB.currentUser() ? '#/survey/' + esc(id) : '#/login'}">${esc(lang === 'zh' ? '写下第一条评价' : 'Write the first review')} →</a></div>`}</div></section>`;
 }
@@ -3229,7 +3137,6 @@ function studentLifeDetailHTML(id, lang) {
     return `<div><span>${esc(label)}</span><strong>${esc(value)}${suffix || ''}</strong><small>${esc(n ? n + ' ' + copy.responses : copy.awaiting)}</small></div>`;
   };
   return `<div class="student-life-detail student-life-decision-map student-life-detail--highlights">
-    ${studentLifePreviewNoticeHTML(lang, id)}
     <aside class="student-decision-rail">
       <h2>${esc(copy.glance)}</h2>
       <div class="student-decision-rail__metrics student-decision-rail__metrics--single">
@@ -3793,20 +3700,6 @@ RANK_CATEGORIES.forEach(c => { RANK_BY_ID[c.id] = c; });
 
 const BEST_PAGE_SIZE = 10;
 
-// In-memory fixtures for layout review; never added to student records.
-function sampleRankingEntries(programs) {
-  const scores = [
-    [4.8,4.6,4.3,4.5], [4.6,4.9,4.2,4.4], [4.5,4.5,4.9,4.3],
-    [4.4,4.4,4.6,4.9], [4.7,4.7,4.5,4.6], [4.3,4.8,4.4,4.2],
-    [4.2,4.3,4.8,4.7], [4.1,4.2,4.7,4.8], [4.0,4.0,4.1,4.1],
-    [3.9,4.1,4.0,4.0], [3.8,3.9,3.9,3.9], [3.7,3.8,3.8,3.8],
-  ];
-  return programs.slice(0, scores.length).map((program, index) => ({
-    program,
-    metrics: Object.fromEntries(['overall','academics','studentLife','campusLife'].map((key, metricIndex) => [key, { value:scores[index][metricIndex], n:28 + index * 7 }])),
-  }));
-}
-
 function paginationList(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   const pages = [];
@@ -3822,15 +3715,12 @@ function paginationList(current, total) {
   return pages;
 }
 
-function bestCardHTML(p, metrics, rank, cat, lang, isSample = false) {
+function bestCardHTML(p, metrics, rank, cat, lang) {
   const reviews = window.SSDB.getReviews(p.id);
-  const sampleReviewKeys = { overall:'rankSampleReviewOverall', academics:'rankSampleReviewAcademics', 'student-life':'rankSampleReviewStudentLife', 'campus-life':'rankSampleReviewCampusLife' };
-  const r0 = isSample ? { author:t('rankSampleAuthor', lang), text:t(sampleReviewKeys[cat.id], lang) } : reviews[0];
+  const r0 = reviews[0];
   const rankedMetric = metrics[cat.metric];
 
-  const eyebrowTpl = isSample
-    ? `${t('rankSamplePosition', lang).replace('%d', rank)} · ${cat.label[lang] || cat.label.en}`
-    : (cat.eyebrow[lang] || cat.eyebrow.en).replace('%d', rank);
+  const eyebrowTpl = (cat.eyebrow[lang] || cat.eyebrow.en).replace('%d', rank);
   const metaParts = [
     pickL(p.host),
     pickL(p.location),
@@ -3848,25 +3738,16 @@ function bestCardHTML(p, metrics, rank, cat, lang, isSample = false) {
     { key:'studentLife', l: lang === 'zh' ? '学生生活' : 'Student life', m: metrics.studentLife },
     { key:'campusLife',  l: lang === 'zh' ? '校园生活' : 'Campus life',   m: metrics.campusLife },
   ].map(s => `<span class="best-card__score ${s.key === cat.metric ? 'is-active' : ''}"><span class="best-card__score-label">${esc(s.l)}</span><span class="best-card__score-value"><strong>${s.m ? s.m.value.toFixed(1) : '—'}</strong>${s.m ? '<small>/ 5</small>' : ''}</span></span>`).join('');
-  const evidence = rankedMetric
-    ? (isSample
-      ? t('rankSampleEvidence', lang).replace('%s', rankedMetric.value.toFixed(1)).replace('%d', rankedMetric.n)
-      : (lang === 'zh'
-        ? `榜单得分 ${rankedMetric.value.toFixed(1)} / 5 · 基于 ${rankedMetric.n} 份学生评分`
-        : `Ranking score ${rankedMetric.value.toFixed(1)} / 5 · Based on ${rankedMetric.n} student ratings`))
-    : '';
-
   const inList = window.SSDB.inList(p.id);
   const photo = campusPhotoFor(p, cat);
 
   return `
-    <article class="best-card ${isSample ? 'best-card--sample' : ''}">
+    <article class="best-card">
       <div class="best-card__body">
         <div class="best-card__eyebrow">${eyebrowTpl}</div>
         <h2 class="best-card__title"><a href="#/program/${esc(p.id)}">${esc(pickL(p.name))}</a></h2>
         <div class="best-card__meta">${meta}</div>
         <p class="best-card__review">${reviewHTML}</p>
-        ${isSample ? `<p class="best-card__evidence">${esc(evidence)}</p>` : ''}
         <div class="best-card__scores">${scoreCells}</div>
         <div class="best-card__actions">
           <a class="best-card__action" href="#/program/${esc(p.id)}">${esc(t('rankActionDetails', lang))}</a>
@@ -3929,9 +3810,7 @@ function renderRankings(catId, page) {
       const metric = entry.metrics[cat.metric];
       return metric && metric.n > 0 && Number.isFinite(metric.value);
     });
-  if (State.rankingsPreview === null) State.rankingsPreview = pagePreviewMode() || studentEntries.length === 0;
-  const isSample = State.rankingsPreview;
-  const all = isSample ? sampleRankingEntries(programs) : studentEntries;
+  const all = studentEntries;
   all.sort((a, b) => {
     const am = a.metrics[cat.metric], bm = b.metrics[cat.metric];
     return (bm.value - am.value) || (bm.n - am.n) || String(a.program.id).localeCompare(String(b.program.id));
@@ -3952,7 +3831,7 @@ function renderRankings(catId, page) {
 
   const html = `
     ${renderHeader('rankings')}
-    <main class="rankings-page" data-ranking-mode="${isSample ? 'sample' : 'student'}">
+    <main class="rankings-page" data-ranking-mode="student">
       <section class="best-hero">
         <h1>${esc(t('rankTitle', lang))}</h1>
         <div class="rankings-disclaimer" role="note" aria-label="${esc(t('rankDisclaimerLabel', lang))}">
@@ -3964,13 +3843,10 @@ function renderRankings(catId, page) {
         </div>
       </section>
       ${rankTabsHTML(cat.id, lang, 1)}
-      <div class="rankings-preview-banner ${isSample ? 'is-sample' : ''}" role="note">
-        <div>${isSample ? `<strong>${esc(t('rankSampleLabel', lang))}</strong><p>${esc(t('rankSampleNotice', lang))}</p>` : `<p>${esc(t('rankStudentMode', lang))}</p>`}</div>
-        <button type="button" id="toggleRankingPreview">${esc(t(isSample ? 'rankShowStudent' : 'rankShowSample', lang))}</button>
-      </div>
+      <div class="rankings-preview-banner" role="note"><div><p>${esc(t('rankStudentMode', lang))}</p></div></div>
       <section class="best-list">
         ${slice.length
-          ? slice.map((entry, i) => bestCardHTML(entry.program, entry.metrics, start + i + 1, cat, lang, isSample)).join('')
+          ? slice.map((entry, i) => bestCardHTML(entry.program, entry.metrics, start + i + 1, cat, lang)).join('')
           : `<div class="best-empty"><h2>${esc(lang === 'zh' ? '暂无学生评分' : 'No student ratings yet')}</h2><p>${esc(lang === 'zh' ? '学生提交相关问卷回答后，该榜单才会显示排名。' : 'Programs will appear here only after students submit answers relevant to this ranking.')}</p></div>`}
       </section>
       ${totalPages > 1 ? `<nav class="pagination">
@@ -3987,11 +3863,6 @@ function renderRankings(catId, page) {
   `;
   $('#app').innerHTML = html;
   bindHeaderEvents();
-  $('#toggleRankingPreview').addEventListener('click', () => {
-    State.rankingsPreview = !isSample;
-    renderRankings(cat.id, 1);
-  });
-
   $$('.best-card__add', document).forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-add');

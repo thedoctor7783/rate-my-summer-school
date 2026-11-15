@@ -3,9 +3,7 @@
  *
  * Holds four collections, all under a single key so they're easy to reset:
  *   - programs : the catalogue (seeded from window.SSDATA, user-editable)
- *   - reviews  : student reviews (seeded with the old "sample" reviews so
- *                the user can delete them, plus any reviews submitted via
- *                the site)
+ *   - reviews  : student reviews submitted through the site
  *   - users    : registered accounts (email/phone + password)
  *   - session  : { userId | null }
  *
@@ -88,6 +86,16 @@
   }
 
   var db = load() || buildSeed();
+  /* Purge legacy design-preview records from browsers that used older builds. */
+  (function removeLegacySampleRecords() {
+    var isLegacySample = function (record) {
+      var id = String((record && record.id) || '');
+      return !!(record && (record.sample || record.demo || record.seed || /^(?:sample-|r-seed-)/.test(id)));
+    };
+    db.reviews = (db.reviews || []).filter(function (record) { return !isLegacySample(record); });
+    db.surveys = (db.surveys || []).filter(function (record) { return !isLegacySample(record); });
+    save(db);
+  })();
   var accountSnapshot = null;
   /* If data.js added new programs, merge them in (idempotent). */
   (function syncPrograms() {
@@ -119,13 +127,17 @@
   }
 
   /* ---------- reviews ---------------------------------------------------- */
-  function getReviews(programId) {
-    return db.reviews.filter(function (r) { return r.programId === programId; });
+  function isPublishedRecord(record) {
+    return !!(record && record.verified === true && !record.sample && !record.demo && !record.seed && !/^(?:sample-|r-seed-)/.test(String(record.id || '')));
   }
-  function getAllReviews() { return db.reviews; }
+  function getReviews(programId) {
+    return db.reviews.filter(function (r) { return r.programId === programId && isPublishedRecord(r); });
+  }
+  function getAllReviews() { return db.reviews.filter(isPublishedRecord); }
   function addReview(r) {
     r.id = 'r-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     r.createdAt = Date.now();
+    r.verified = true;
     db.reviews.push(r);
     save(db);
     postJSON('/api/reviews', r).then(function (saved) {
@@ -264,108 +276,7 @@
   function removeFromList(id){ var list = activeList(); var index = list.indexOf(id); if (index >= 0) { list.splice(index, 1); saveListChange(id, false); } }
   function toggleList(id)    { if (inList(id)) { removeFromList(id); return false; } addToList(id); return true; }
 
-  /* ---------- survey aggregation -------------------------------------- *
-   * Each program's questionnaire results are shown as aggregated vote
-   * counts. We blend two sources:
-   *   1. a deterministic seeded "baseline" so every program shows a
-   *      realistic-looking distribution immediately (demo-ready), and
-   *   2. any real submissions recorded via recordRound(), which accumulate
-   *      on top of the baseline as students actually complete surveys.
-   * The same code path serves every module (Academics, Student life, …). */
-  function hashStr(s) {
-    var h = 2166136261 >>> 0;
-    s = String(s);
-    for (var i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-    return h >>> 0;
-  }
-  function mulberry32(a) {
-    return function () {
-      a |= 0; a = (a + 0x6D2B79F5) | 0;
-      var t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  // Seeded baseline "silhouettes" (weights; we normalise). They make the
-  // demo data look like a real distribution rather than flat noise.
-  var SEED_SHAPES = {
-    workload:         [0.22, 0.46, 0.22, 0.10],
-    academic_level:   [0.20, 0.30, 0.30, 0.13, 0.07],
-    interaction:      [0.16, 0.30, 0.36, 0.18],
-    socializing_difficulty:[0.28, 0.38, 0.20, 0.09, 0.05],
-    helped_interests:[0.10, 0.10, 0.16, 0.34, 0.30],
-    recommend:        [0.46, 0.26, 0.10, 0.12, 0.06],
-    expectations:     [0.16, 0.42, 0.42],
-    connection:       [0.30, 0.34, 0.18, 0.06, 0.07, 0.05],
-  };
-  function defaultStarsShape(max) {
-    if (max === 5) return [0.04, 0.08, 0.18, 0.38, 0.32];
-    return [0.06, 0.14, 0.30, 0.26, 0.14, 0.10].slice(0, max);
-  }
-  function defaultLikertShape(rng) {
-    // positive statements skew toward "Agree" / "Strongly agree"
-    return [0.03 + rng() * 0.05, 0.06 + rng() * 0.06, 0.10 + rng() * 0.06,
-            0.34 + rng() * 0.08, 0.34 + rng() * 0.08];
-  }
-  function normCounts(weights, total, rng) {
-    var jit = weights.map(function (w) { return w * (0.82 + rng() * 0.36); });
-    var s = jit.reduce(function (a, b) { return a + b; }, 0) || 1;
-    var raw = jit.map(function (w) { return w / s * total; });
-    var counts = raw.map(function (v) { return Math.floor(v); });
-    var rem = total - counts.reduce(function (a, b) { return a + b; }, 0);
-    var frac = raw.map(function (v, i) { return { i: i, f: v - Math.floor(v) }; })
-                  .sort(function (a, b) { return b.f - a.f; });
-    for (var k = 0; k < rem; k++) counts[frac[k % frac.length].i]++;
-    return counts;
-  }
-  function seedQuestionDist(programId, q) {
-    var rng = mulberry32(hashStr(programId + '::' + q.key));
-    var total = Math.floor(22 + rng() * 66); // 22–88 respondents
-    if (q.type === 'stars') {
-      var max = q.max || 5;
-      var sh = SEED_SHAPES[q.key] || defaultStarsShape(max);
-      var dist = normCounts(sh, total, rng);
-      var sum = dist.reduce(function (a, c, i) { return a + c * (i + 1); }, 0);
-      return { type: 'stars', max: max, dist: dist, n: total, sum: sum, avg: sum / total };
-    }
-    if (q.type === 'pills-single') {
-      var w = SEED_SHAPES[q.key] || q.options.map(function () { return 1; });
-      var dc = normCounts(w, total, rng);
-      var opts = q.options.map(function (o, i) {
-        return { value: o.value, en: o.en, zh: o.zh, count: dc[i] };
-      });
-      return { type: 'pills-single', total: total, options: opts };
-    }
-    if (q.type === 'pills-multi') {
-      var mopts = q.options.map(function (o) {
-        return { value: o.value, en: o.en, zh: o.zh, count: Math.floor(total * (0.28 + rng() * 0.5)) };
-      });
-      return { type: 'pills-multi', total: total, options: mopts };
-    }
-    if (q.type === 'likert-grid') {
-      var items = q.subItems.map(function (s) {
-        var d = normCounts(defaultLikertShape(rng), total, rng);
-        var ss = d.reduce(function (a, c, i) { return a + c * (i + 1); }, 0);
-        return { key: s.key, label: s.label, dist: d, n: total, sum: ss };
-      });
-      return { type: 'likert-grid', scale: q.scale, total: total, items: items };
-    }
-    if (q.type === 'word-pick') {
-      var words = q.words.map(function (w) {
-        return { en: w.en, zh: w.zh, count: Math.floor(total * (0.14 + rng() * 0.46)) };
-      });
-      return { type: 'word-pick', total: total, words: words };
-    }
-    if (q.type === 'category-grid') {
-      var citems = q.subItems.map(function (s) {
-        var d2 = normCounts([0.04, 0.08, 0.18, 0.38, 0.32], total, rng);
-        var s2 = d2.reduce(function (a, c, i) { return a + c * (i + 1); }, 0);
-        return { key: s.key, label: s.label, dist: d2, n: total, sum: s2 };
-      });
-      return { type: 'category-grid', total: total, items: citems };
-    }
-    return null;
-  }
+  /* ---------- survey aggregation -------------------------------------- */
   /* Empty but fully shaped aggregates: the UI can name every option without
    * inventing a percentage before a student has actually answered. */
   function emptyQuestionDist(q) {
@@ -579,7 +490,7 @@
   }
   function recordRound(programId, roundKey, answers) {
     db.surveys = db.surveys || [];
-    var record = { id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), programId: programId, roundKey: roundKey, answers: answers || {}, ts: Date.now() };
+    var record = { id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), programId: programId, roundKey: roundKey, answers: answers || {}, ts: Date.now(), verified: true };
     db.surveys.push(record);
     save(db);
     postJSON('/api/surveys', record).then(function (saved) {
@@ -589,20 +500,8 @@
   }
   function getAggregate(programId) {
     var agg = buildAggregate(programId);
-    var recs = (db.surveys || []).filter(function (s) { return s.programId === programId; });
+    var recs = (db.surveys || []).filter(function (s) { return s.programId === programId && isPublishedRecord(s); });
     recs.forEach(function (s) { applyRecord(agg, s.roundKey, s.answers); });
-    return agg;
-  }
-  /* Deterministic, non-persistent sample results for visual design review.
-   * These values are never mixed into stored survey responses. */
-  function getDemoAggregate(programId) {
-    var agg = {};
-    (window.SSDATA.QUESTIONNAIRE || []).forEach(function (round) {
-      round.questions.forEach(function (q) {
-        agg[q.key] = seedQuestionDist(programId + '::preview', q) || emptyQuestionDist(q);
-        if (agg[q.key]) agg[q.key].demo = true;
-      });
-    });
     return agg;
   }
 
@@ -619,7 +518,6 @@
     deleteReviewsForProgram: deleteReviewsForProgram,
     recordRound:      recordRound,
     getAggregate:     getAggregate,
-    getDemoAggregate: getDemoAggregate,
     getSurveyResponses: function (programId) { return (db.surveys || []).filter(function (s) { return s.programId === programId; }); },
     hydrateRemote:    hydrateRemote,
     registerRemote:   registerRemote,

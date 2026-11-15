@@ -11,26 +11,6 @@
   const colors = ['#a8bdf6', '#74dfbd', '#f4a5e5', '#ff9172', '#a8d6c5', '#ffd28a'];
   const calmColors = ['#365f55', '#5f877b', '#84a79b', '#a9c4ba', '#c9d9d3', '#e3ebe7'];
 
-  function previewMode() {
-    try { return new URLSearchParams(window.location.search).get('previewData') === '1'; }
-    catch (e) { return false; }
-  }
-  const HARVARD_SSP_SAMPLE_ID = 'catalog-002-harvard-secondary-school-program';
-  function harvardSspDemo(id, keys) {
-    if (id !== HARVARD_SSP_SAMPLE_ID || !window.SSDB.getDemoAggregate) return false;
-    const live = window.SSDB.getAggregate(id);
-    return keys.every(key => {
-      const result = live[key];
-      return !result || (!(result.n || result.total) && !(result.items || []).some(item => item.n));
-    });
-  }
-  function campusPreviewMode() {
-    try {
-      // Campus Life stays in an explicitly labelled design-preview state.
-      // Add previewData=0 to inspect stored student responses instead.
-      return new URLSearchParams(window.location.search).get('previewData') !== '0';
-    } catch (e) { return true; }
-  }
   function isDiscoveryListing(id) {
     const programs = (window.SSDATA && window.SSDATA.PROGRAMS) || [];
     const program = programs.find(item => item.id === id);
@@ -62,28 +42,16 @@
       return new URLSearchParams(window.location.search).get('stats') === 'split' ? 'split' : 'single';
     } catch (e) { return 'single'; }
   }
-  function aggregate(programId, useDemo) {
-    return useDemo && window.SSDB.getDemoAggregate
-      ? window.SSDB.getDemoAggregate(programId)
-      : window.SSDB.getAggregate(programId);
+  function aggregate(programId) {
+    return window.SSDB.getAggregate(programId);
   }
-  function previewNotice(lang, useDemo, compact) {
-    if (!useDemo) return '';
-    const message = compact
-      ? copy(lang, 'Fictional results shown for layout only.', '仅用虚构结果预览排版。')
-      : copy(lang, 'Sample data only — these are not official or real student results.', '仅使用示例数据，不代表官方信息或真实学生调查结果。');
-    return `<aside class="demo-data-notice${compact ? ' demo-data-notice--compact' : ''}"><strong>${esc(copy(lang, compact ? 'SAMPLE PREVIEW' : 'DESIGN PREVIEW', compact ? '示例预览' : '设计预览'))}</strong><span>${esc(message)}</span></aside>`;
-  }
-
   function countOf(result) {
     if (!result) return 0;
     return Number(result.n != null ? result.n : result.total) || 0;
   }
   function countNote(result, lang) {
     const n = countOf(result);
-    return n ? (result && result.demo
-      ? copy(lang, `Based on ${n} sample responses`, `基于 ${n} 份示例回答`)
-      : copy(lang, `Based on ${n} verified responses`, `基于 ${n} 份已验证回答`))
+    return n ? copy(lang, `Based on ${n} verified responses`, `基于 ${n} 份已验证回答`)
       : copy(lang, 'Awaiting verified student feedback', '等待已验证学生反馈');
   }
   function positiveFromStars(result, reverse) {
@@ -156,53 +124,26 @@
     const item = agg.category_ratings && agg.category_ratings.items ? agg.category_ratings.items.find(row => row.key === key) : null;
     return item ? { avg:item.n ? item.sum / item.n : 0, n:item.n } : { avg:0, n:0 };
   }
-  function reviewCard(review, lang, sample) {
+  function reviewCard(review, lang) {
     const author = review.author || copy(lang, 'Anonymous', '匿名');
-    return `<article class="review-card"><div class="avatar">${esc(author.slice(0, 2).toUpperCase())}</div><div><div class="row row--between"><div><strong>${esc(author)}</strong> <span class="muted">· ${esc(review.who || '')}</span></div><div class="mini-stars">${'★'.repeat(review.stars || 0)}${'☆'.repeat(5 - (review.stars || 0))}</div></div>${sample ? `<span class="sample-review-label">${esc(copy(lang, 'SAMPLE REVIEW', '示例评价'))}</span>` : ''}<p>${esc(local(review.text, lang))}</p></div></article>`;
+    return `<article class="review-card"><div class="avatar">${esc(author.slice(0, 2).toUpperCase())}</div><div><div class="row row--between"><div><strong>${esc(author)}</strong> <span class="muted">· ${esc(review.who || '')}</span></div><div class="mini-stars">${'★'.repeat(review.stars || 0)}${'☆'.repeat(5 - (review.stars || 0))}</div></div><p>${esc(local(review.text, lang))}</p></div></article>`;
   }
-  function campusReviews(id, lang, useDemo) {
+  function campusReviews(id, lang) {
     const stored = window.SSDB.getReviews(id);
-    let reviews = stored.filter(review => /campus|dorm|housing|food|facilit|safe|room|resident|dining|cafeteria|laundry|transport|area|校园|宿舍|餐饮|交通/i.test(review.text || ''));
-    let sample = false;
-    if (!stored.length && useDemo) {
-      sample = true;
-      reviews = id === HARVARD_SSP_SAMPLE_ID ? [
-        { author:copy(lang, 'Sample student', '示例学生'), who:copy(lang, 'Fictional residential example', '虚构住宿示例'), stars:4, text:text('During a residential session, I could get from my room to class without much trouble. Quiet study space mattered most after a full day.', '在住宿形式的示例体验中，从宿舍到教室很方便；忙碌一天后，安静的学习空间对我最重要。') },
-        { author:copy(lang, 'Sample student', '示例学生'), who:copy(lang, 'Fictional residential example', '虚构住宿示例'), stars:4, text:text('Sharing meals gave me a chance to see classmates outside class, though I sometimes wanted more time to explore the surrounding area.', '一起用餐让我有机会在课堂之外认识同学，不过我偶尔也希望有更多时间探索周边。') }
-      ] : [
-        { author:'Maya', who:'2025 residential student', stars:4, text:text('The residential colleges felt social and easy to navigate. I especially liked having common spaces where people from different tracks could meet.', '住宿学院很有社交氛围，校园内也容易找到方向。我尤其喜欢公共空间，不同方向的同学可以在那里认识彼此。') },
-        { author:'Leo', who:'2025 residential student', stars:4, text:text('The campus felt safe during the program. Dining was convenient, although the choices started to feel repetitive near the end of the session.', '项目期间校园整体让我感觉安全。用餐很方便，不过到了后半段会觉得选择有些重复。') }
-      ];
-    }
-    const cards = reviews.slice(0, 3).map(review => reviewCard(review, lang, sample)).join('');
+    const reviews = stored.filter(review => /campus|dorm|housing|food|facilit|safe|room|resident|dining|cafeteria|laundry|transport|area|校园|宿舍|餐饮|交通/i.test(review.text || ''));
+    const cards = reviews.slice(0, 3).map(review => reviewCard(review, lang)).join('');
     return `<section class="experience-reviews"><header class="experience-reviews__head"><p>${esc(copy(lang, 'IN THEIR OWN WORDS', '学生亲述'))}</p><h2>${esc(copy(lang, 'Campus Life Reviews', '校园生活评价'))}</h2></header><div class="experience-reviews__grid">${cards || `<div class="experience-reviews__empty"><p>${esc(copy(lang, 'No campus life reviews yet.', '暂时还没有校园生活评价。'))}</p><a href="${window.SSDB.currentUser() ? '#/survey/' + esc(id) : '#/login'}">${esc(copy(lang, 'Write the first review', '写下第一条评价'))} →</a></div>`}</div></section>`;
   }
-  function academicReviews(id, lang, useDemo) {
+  function academicReviews(id, lang) {
     const stored = window.SSDB.getReviews(id);
-    let reviews = stored.filter(review => /professor|instructor|teacher|class|academ|lecture|seminar|study|course|workload|assignment|project|research|lab|课程|课堂|老师|学术/i.test(review.text || ''));
-    const sample = !stored.length && useDemo && id === HARVARD_SSP_SAMPLE_ID;
-    if (sample) reviews = [
-      { author:copy(lang, 'Sample student', '示例学生'), who:copy(lang, 'Fictional example', '虚构示例'), stars:5, text:text('Class discussions encouraged me to ask more questions, and instructor feedback gave me a clearer way to approach the coursework.', '课堂讨论鼓励我提出更多问题，老师的反馈也让我更清楚该怎样完成课程作业。') },
-      { author:copy(lang, 'Sample student', '示例学生'), who:copy(lang, 'Fictional example', '虚构示例'), stars:4, text:text('The workload required planning ahead, but working through difficult material with classmates made the experience rewarding.', '课程任务需要提前安排时间，但和同学一起攻克难题让我觉得很有收获。') }
-    ];
+    const reviews = stored.filter(review => /professor|instructor|teacher|class|academ|lecture|seminar|study|course|workload|assignment|project|research|lab|课程|课堂|老师|学术/i.test(review.text || ''));
     if (!reviews.length) return '';
-    return `<section class="experience-reviews experience-reviews--academics"><header class="experience-reviews__head"><p>${esc(copy(lang, 'IN THEIR OWN WORDS', '学生亲述'))}</p><h2>${esc(copy(lang, 'Academics Reviews', '学术体验评价'))}</h2></header><div class="experience-reviews__grid">${reviews.slice(0, 3).map(review => reviewCard(review, lang, sample)).join('')}</div></section>`;
+    return `<section class="experience-reviews experience-reviews--academics"><header class="experience-reviews__head"><p>${esc(copy(lang, 'IN THEIR OWN WORDS', '学生亲述'))}</p><h2>${esc(copy(lang, 'Academics Reviews', '学术体验评价'))}</h2></header><div class="experience-reviews__grid">${reviews.slice(0, 3).map(review => reviewCard(review, lang)).join('')}</div></section>`;
   }
-  function outcomeReviews(id, lang, useDemo) {
+  function outcomeReviews(id, lang) {
     const stored = window.SSDB.getReviews(id);
-    let reviews = stored.filter(review => /outcome|skill|learn|growth|direction|future|career|mentor|connection|research|portfolio|recommendation|confidence|worth|value|收获|能力|成长|未来|信心/i.test(review.text || ''));
-    let sample = false;
-    if (!stored.length && useDemo) {
-      sample = true;
-      reviews = id === HARVARD_SSP_SAMPLE_ID ? [
-        { author:copy(lang, 'Sample student', '示例学生'), who:copy(lang, 'Fictional example', '虚构示例'), stars:5, text:text('The experience helped me understand which subjects I want to explore further and made college-level coursework feel less unfamiliar.', '这段示例体验让我更清楚想继续探索哪些学科，也不再觉得大学课程那么陌生。') },
-        { author:copy(lang, 'Sample student', '示例学生'), who:copy(lang, 'Fictional example', '虚构示例'), stars:4, text:text('I became more comfortable asking for feedback and planning my work independently—habits I would carry into my next course.', '我更习惯主动寻求反馈、独立安排学习；这些习惯是我希望带进下一门课的收获。') }
-      ] : [
-        { author:'Alex', who:'2026 student', stars:5, text:text('I left with a completed project, clearer academic direction, and friends I still talk with.', '我带走了一个完整项目、更清晰的学术方向，以及至今仍保持联系的朋友。') },
-        { author:'Jordan', who:'2026 residential student', stars:4, text:text('The program helped me become more independent and more confident presenting my work.', '这个项目让我更独立，也让我在展示自己的成果时更有信心。') }
-      ];
-    }
-    const cards = reviews.slice(0, 3).map(review => reviewCard(review, lang, sample)).join('');
+    const reviews = stored.filter(review => /outcome|skill|learn|growth|direction|future|career|mentor|connection|research|portfolio|recommendation|confidence|worth|value|收获|能力|成长|未来|信心/i.test(review.text || ''));
+    const cards = reviews.slice(0, 3).map(review => reviewCard(review, lang)).join('');
     return `<section class="experience-reviews experience-reviews--outcomes"><header class="experience-reviews__head"><p>${esc(copy(lang, 'WHAT LASTED', '持续的影响'))}</p><h2>${esc(copy(lang, 'Reviews on Outcomes', '关于项目收获的评价'))}</h2></header><div class="experience-reviews__grid">${cards || `<div class="experience-reviews__empty"><p>${esc(copy(lang, 'No outcome-focused reviews yet. Be the first to explain what stayed useful after the program ended.', '暂时还没有关于项目收获的评价。你可以率先分享项目结束后仍然有用的收获。'))}</p><a href="${window.SSDB.currentUser() ? '#/survey/' + esc(id) : '#/login'}">${esc(copy(lang, 'Write about your outcomes', '分享你的收获'))} →</a></div>`}</div></section>`;
   }
 
@@ -264,7 +205,7 @@
     return `<section class="academic-section academic-section--${tone}"><div class="decision-section__head"><span>${number}</span><h2>${esc(local(title, lang))}</h2></div>${body}</section>`;
   }
   function averageResult(results) {
-    let sum = 0, n = 0, demo = false;
+    let sum = 0, n = 0;
     results.filter(Boolean).forEach(result => {
       const count = countOf(result);
       if (!count) return;
@@ -272,9 +213,8 @@
       if (!Number.isFinite(average)) return;
       sum += average * count;
       n += count;
-      demo = demo || !!result.demo;
     });
-    return { avg:n ? sum / n : 0, n, demo };
+    return { avg:n ? sum / n : 0, n };
   }
   function campusPreviewOverall(agg, lang) {
     const result = averageResult([agg.housing_rating, agg.campus_safe, agg.campus_convenient, agg.campus_food, agg.local_area_rating]);
@@ -362,44 +302,41 @@
     const meta = likertMeta(result);
     return `<article class="insight-stat academic-preview-snapshot">${pollMark(lang)}<p class="insight-stat__label">${esc(copy(lang, 'Instructor engagement', '老师投入度'))}</p><div class="insight-stat__value">${top && top.pct != null ? top.pct + '%' : '—'}</div><p class="insight-stat__sentence">${top ? esc(local(top.label, lang)) : esc(copy(lang, 'Results will appear after verified responses are received.', '收到已验证回答后将显示结果。'))}</p><span class="insight-stat__count">${esc(countNote(meta, lang))}</span></article>`;
   }
-  function campusDecisionMap(id, lang, agg, useDemo) {
+  function campusDecisionMap(id, lang, agg) {
     const housing = decisionEvidence(text('How students described the dorm atmosphere', '学生如何描述宿舍氛围'), agg.dorm_atmosphere, optionDecisionItems(agg.dorm_atmosphere), lang, 4);
     const safety = `<div class="decision-percent-grid">${decisionPercent(agg.campus_safe, text('of students said they felt safe or very safe on campus.', '的学生表示他们在校园内感到安全或非常安全。'), lang)}${decisionPercent(agg.campus_convenient, text('of students said getting around campus was convenient or very convenient.', '的学生表示在校园内出行方便或非常方便。'), lang)}</div>`;
     const food = `<div class="decision-percent-grid decision-percent-grid--single">${decisionPercent(agg.campus_food, text('of students rated the food provided by the program 4 or 5 out of 5.', '的学生为项目提供的餐饮打出 4 分或 5 分。'), lang)}</div>${decisionEvidence(text('Facilities students could rely on', '学生可以依赖的校园设施'), agg.campus_facilities, optionDecisionItems(agg.campus_facilities), lang, 4)}`;
     const localArea = `${decisionEvidence(text('How students described the area', '学生如何描述周边环境'), agg.area_words, optionDecisionItems(agg.area_words), lang, 4)}${decisionEvidence(text('What was easy to access nearby', '周边容易到达的资源'), agg.area_convenience, optionDecisionItems(agg.area_convenience), lang, 4)}`;
     const rail = `<aside class="decision-map__rail"><h2>${esc(copy(lang, 'Campus Life at a glance', '校园生活概览'))}</h2><div class="decision-map__rail-metrics">${decisionRailMetric(text('Housing', '住宿'), agg.housing_rating, 'average', lang)}${decisionRailMetric(text('Safety', '安全'), agg.campus_safe, 'average', lang)}${decisionRailMetric(text('Transportation convenience', '交通便利度'), agg.campus_convenient, 'average', lang)}${decisionRailMetric(text('Food', '餐饮'), agg.campus_food, 'average', lang)}${decisionRailMetric(text('Local area', '周边环境'), agg.local_area_rating, 'average', lang)}</div></aside>`;
     const main = `<div class="decision-map__main"><header class="decision-map__intro"><p>${esc(copy(lang, 'A STUDENT DECISION MAP', '学生决策地图'))}</p><h2>${esc(copy(lang, 'Can I picture myself living here?', '我能想象自己在这里生活吗？'))}</h2></header>${decisionSection('01', 'blue', text('Housing', '住宿'), housing, lang)}${decisionSection('02', 'mint', text('Safety & Transportation Convenience', '安全与交通便利度'), safety, lang)}${decisionSection('03', 'yellow', text('Food & Facilities', '餐饮与设施'), food, lang)}${decisionSection('04', 'coral', text('Local Area', '周边环境'), localArea, lang)}</div>`;
-    return `<div class="experience-detail experience-campus campus-decision-map campus-stats-${campusStatsVariant()} campus-bars-columns">${previewNotice(lang, useDemo)}<div class="decision-map">${rail}${main}</div>${footer(id, lang)}${campusReviews(id, lang, useDemo)}</div>`;
+    return `<div class="experience-detail experience-campus campus-decision-map campus-stats-${campusStatsVariant()} campus-bars-columns"><div class="decision-map">${rail}${main}</div>${footer(id, lang)}${campusReviews(id, lang)}</div>`;
   }
 
   function campus(id, lang, full) {
-    const useDemo = id === HARVARD_SSP_SAMPLE_ID
-      ? (previewMode() || harvardSspDemo(id, ['housing_rating', 'campus_safe', 'campus_convenient', 'campus_food', 'local_area_rating', 'category_ratings', 'dorm_atmosphere', 'campus_facilities', 'area_words', 'area_convenience']))
-      : campusPreviewMode();
-    const agg = aggregate(id, useDemo);
+    const agg = aggregate(id);
     const intro = '';
     const snapshots = `<div class="insight-stat-grid campus-snapshot-grid campus-snapshot-grid--two">${percentInsight(text('Campus safety', '校园安全感'), agg.campus_safe, lang, text('of students felt safe or very safe on campus.', '的学生在校园内感到安全或非常安全。'))}${percentInsight(text('Getting around', '校内出行'), agg.campus_convenient, lang, text('of students found it convenient or very convenient to get around.', '的学生认为校内出行方便或非常方便。'))}</div>`;
     const lead = `<div class="campus-preview-dashboard"><div class="campus-preview-dashboard__left">${snapshots}</div>${campusPreviewOverall(agg, lang)}</div>`;
     const areaPoll = `<article class="campus-preview-poll"><div class="campus-preview-poll__head"><div><p>${esc(copy(lang, 'STUDENT POLL', '学生投票'))}</p><h3>${esc(copy(lang, 'How students described the area', '学生如何描述周边环境'))}</h3></div><small>${esc(countNote(agg.area_words, lang))}</small></div>${decisionTiles(optionDecisionItems(agg.area_words), lang, 4)}</article>`;
-    if (!full) return `<div class="experience-preview experience-preview--campus">${previewNotice(lang, useDemo, true)}${intro}${lead}${areaPoll}</div>`;
-    return campusDecisionMap(id, lang, agg, useDemo);
+    if (!full) return `<div class="experience-preview experience-preview--campus">${intro}${lead}${areaPoll}</div>`;
+    return campusDecisionMap(id, lang, agg);
   }
 
   function weightedOptionAverage(result) {
     const total = countOf(result);
-    if (!total) return { avg:0, n:0, demo:!!(result && result.demo) };
+    if (!total) return { avg:0, n:0 };
     const sum = optionList(result).reduce((value, item) => value + (Number(item.value) || 0) * (Number(item.count) || 0), 0);
-    return { avg:sum / total, n:total, demo:!!result.demo };
+    return { avg:sum / total, n:total };
   }
   function instructorAverage(result) {
     const items = result && result.items ? result.items : [];
     const sum = items.reduce((value, item) => value + (Number(item.sum) || 0), 0);
     const n = items.reduce((value, item) => value + (Number(item.n) || 0), 0);
-    return { avg:n ? sum / n : 0, n, demo:!!(result && result.demo) };
+    return { avg:n ? sum / n : 0, n };
   }
   function likertMeta(result) {
     const items = result && result.items ? result.items : [];
-    return { n:items.reduce((max, item) => Math.max(max, Number(item.n) || 0), 0), demo:!!(result && result.demo) };
+    return { n:items.reduce((max, item) => Math.max(max, Number(item.n) || 0), 0) };
   }
   function multiSelectDecisionItems(result) {
     const total = countOf(result);
@@ -436,12 +373,11 @@
     return `<article class="outcome-board outcome-board--ledger academic-activity-ledger"><div class="outcome-board__head"><div><h3>${esc(copy(lang, 'What types of academic activities did the program include?', '项目包含哪些学术活动？'))}</h3></div><small>${esc(countNote(result, lang))}</small></div><ol class="outcome-ledger">${visible.map(row).join('')}</ol>${hidden.length ? `<details class="outcome-disclosure outcome-disclosure--ledger"><summary>${outcomeDisclosureSummary(lang, 'Show all activities', '查看全部活动')}</summary><ol class="outcome-ledger">${hidden.map((item, index) => row(item, index + visible.length)).join('')}</ol></details>` : ''}<p class="outcome-board__note">${esc(copy(lang, 'Students could select more than one activity, so percentages do not add to 100%.', '学生可多选，因此比例不会合计为 100%。'))}</p></article>`;
   }
   function academics(id, lang, full) {
-    const useDemo = previewMode() || id === 'ucsb-pre' || harvardSspDemo(id, ['academic_rating', 'instructors_likert', 'interaction', 'workload', 'academic_content_match', 'activities']);
-    const agg = aggregate(id, useDemo);
+    const agg = aggregate(id);
     if (!full) {
       const dashboard = `<div class="academic-preview-dashboard">${academicOfficialFacts(id, lang)}<div class="academic-preview-dashboard__lower">${academicInstructorSnapshot(agg.instructors_likert, lang)}${academicPreviewOverall(agg, lang)}</div></div>`;
       const workload = `<article class="campus-preview-poll academic-preview-poll"><div class="campus-preview-poll__head"><div><p>${esc(copy(lang, 'STUDENT POLL', '学生投票'))}</p><h3>${esc(copy(lang, 'How heavy was the academic workload?', '学业负担有多重？'))}</h3></div><small>${esc(countNote(agg.workload, lang))}</small></div>${decisionTiles(optionDecisionItems(agg.workload), lang, 4)}</article>`;
-      return `<div class="experience-preview experience-preview--academics">${previewNotice(lang, useDemo, true)}${dashboard}${workload}</div>`;
+      return `<div class="experience-preview experience-preview--academics">${dashboard}${workload}</div>`;
     }
     const instructorScore = instructorAverage(agg.instructors_likert);
     const contentScore = weightedOptionAverage(agg.academic_content_match);
@@ -457,7 +393,7 @@
     const contentMatch = `<div class="academic-question-block academic-question-block--ring"><div class="academics-content-ring">${contentMatchBody}</div></div>`;
     const activities = `<div class="academic-question-block">${academicActivityLedger(agg.activities, lang)}</div>`;
     const main = `<div class="decision-map__main"><header class="decision-map__intro"><p>${esc(copy(lang, 'A STUDENT DECISION MAP', '学生决策地图'))}</p><h2>${esc(copy(lang, 'Can I picture myself learning here?', '我能想象自己在这里学习吗？'))}</h2></header>${academicDecisionSection('01', 'blue', text('Instructors', '授课老师'), `<div class="academic-question-stack">${instructorStatements}${interaction}</div>`, lang)}${academicDecisionSection('02', 'mint', text('Academic Content', '学术内容'), `<div class="academic-question-stack">${workload}${contentMatch}</div>`, lang)}${academicDecisionSection('03', 'yellow', text('Academic Activities', '学术活动'), activities, lang)}</div>`;
-    return `<div class="experience-detail academics-decision-map campus-decision-map campus-stats-single campus-bars-columns">${previewNotice(lang, useDemo)}<div class="decision-map">${rail}${main}</div>${academicReviews(id, lang, useDemo)}${footer(id, lang, 'academics')}</div>`;
+    return `<div class="experience-detail academics-decision-map campus-decision-map campus-stats-single campus-bars-columns"><div class="decision-map">${rail}${main}</div>${academicReviews(id, lang)}${footer(id, lang, 'academics')}</div>`;
   }
 
   // These two Outcome questions are single-choice categories, rather than a
@@ -496,13 +432,6 @@
   }
   function outcomeDisclosureSummary(lang, showEn, showZh) {
     return `<span class="outcome-disclosure__open">${esc(copy(lang, showEn, showZh))}</span><span class="outcome-disclosure__close">${esc(copy(lang, 'Show less', '收起'))}</span><span class="outcome-disclosure__arrow" aria-hidden="true">⌄</span>`;
-  }
-  function outcomeDemoSwitcher(id, lang, current, currentType) {
-    const route = `#/program/${encodeURIComponent(id)}/outcomes`;
-    const href = (layout, type) => `?previewData=1&outcomeDesign=${layout}&typeScale=${type}${route}`;
-    const layoutLink = (key, label) => `<a class="${current === key ? 'is-active' : ''}" href="${href(key, currentType)}">${esc(label)}</a>`;
-    const typeLink = (key, label) => `<a class="${currentType === key ? 'is-active' : ''}" href="${href(current, key)}">${esc(label)}</a>`;
-    return `<nav class="outcome-demo-switcher" aria-label="${esc(copy(lang, 'Outcome design demos', '项目收获页面设计示例'))}"><div class="outcome-demo-switcher__group"><span>${esc(copy(lang, 'LAYOUT', '布局'))}</span><div>${layoutLink('mixed', copy(lang, 'Clean data', '清晰数据'))}${layoutLink('pathways', copy(lang, 'Impact cards', '影响卡片'))}</div></div><div class="outcome-demo-switcher__group"><span>${esc(copy(lang, 'TYPE SIZE', '字号'))}</span><div>${typeLink('compact', copy(lang, 'Compact', '紧凑'))}${typeLink('balanced', copy(lang, 'Balanced', '平衡'))}${typeLink('large', copy(lang, 'Large', '大号'))}</div></div></nav>`;
   }
   function outcomeBars(title, result, lang, eyebrow, note, palette=colors) {
     const total = countOf(result);
@@ -550,8 +479,7 @@
     return `<article class="outcome-path-card"><div class="outcome-ring-card__head"><h3>${esc(local(title, lang))}</h3><small>${esc(countNote(result, lang))}</small></div><ol class="outcome-path-list">${rows(visible)}</ol>${hidden.length ? `<details class="outcome-disclosure outcome-disclosure--path"><summary>${outcomeDisclosureSummary(lang, 'Show all', '查看全部')}</summary><ol class="outcome-path-list">${rows(hidden, visible.length)}</ol></details>` : ''}</article>`;
   }
   function outcomes(id, lang, full) {
-    const useDemo = previewMode() || id === 'ucsb-pre' || harvardSspDemo(id, ['skills', 'outcomes', 'academic_direction', 'lasting_connection']);
-    const agg = aggregate(id, useDemo);
+    const agg = aggregate(id);
     const variant = 'mixed';
     const typeVariant = 'balanced';
     const directionResult = rankedOptions(agg.academic_direction);
@@ -562,7 +490,7 @@
       ? `<div class="outcome-path-grid">${outcomePathway(directionTitle, directionResult, lang)}${outcomePathway(connectionTitle, connectionResult, lang)}</div>`
       : `<div class="outcome-mixed-grid">${outcomePathway(directionTitle, directionResult, lang, colors)}${outcomeRing(connectionTitle, connectionResult, lang, colors)}</div>`;
     const intro = `<p class="experience-intro">${esc(copy(lang, 'Student report what outcomes they gained after attending the program.', '学生报告参加项目后获得了哪些成果。'))}</p>`;
-    if (!full) return `<div class="experience-preview experience-preview--outcomes">${previewNotice(lang, useDemo, true)}${outcomePreviewSummary(agg, lang)}</div>`;
+    if (!full) return `<div class="experience-preview experience-preview--outcomes">${outcomePreviewSummary(agg, lang)}</div>`;
     const skills = variant === 'pathways'
       ? outcomeTiles(text('Skills students said they improved', '学生表示有所提升的能力'), agg.skills, lang)
       : outcomeBars(text('Skills students said they improved', '学生表示有所提升的能力'), agg.skills, lang, text('REPORTED GROWTH', '学生反馈的成长'), text('Students could select more than one skill, so percentages do not add to 100%.', '学生可多选，因此各项比例不会合计为 100%。'), colors);
@@ -570,7 +498,7 @@
     const growth = variant === 'mixed'
       ? `<div class="outcome-growth-grid">${outcomeMiniSection('01', text('Skills gained', '提升的技能'), skills, lang)}${outcomeMiniSection('02', text('Concrete takeaways', '具体收获'), takeaways, lang)}</div>`
       : `${section('01', text('Skills Students Gained', '学生提升的技能'), text('', ''), skills, lang)}${section('02', text('Concrete Takeaways', '具体收获'), text('', ''), takeaways, lang)}`;
-    return `<div class="experience-detail experience-outcomes outcome-design-${variant} outcome-type-${typeVariant} design-${designVariant()}">${previewNotice(lang, useDemo, true)}${intro}${growth}${section('03', text('Direction & Connections', '方向与联系'), text('', ''), directionAndConnections, lang)}${outcomeReviews(id, lang, useDemo)}${footer(id, lang, 'outcomes')}</div>`;
+    return `<div class="experience-detail experience-outcomes outcome-design-${variant} outcome-type-${typeVariant} design-${designVariant()}">${intro}${growth}${section('03', text('Direction & Connections', '方向与联系'), text('', ''), directionAndConnections, lang)}${outcomeReviews(id, lang)}${footer(id, lang, 'outcomes')}</div>`;
   }
   window.SSExperience = { academics, campus, outcomes };
 })();

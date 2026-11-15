@@ -36,7 +36,7 @@ For example, if a visitor chooses one subject and one learning method, with no g
 
 Ties use completeness of the six relevant evidence fields, then program name. If subjects and methods are both open, the first five suggestions include varied subjects and experiences. A request for cheaper choices uses confirmed current-year starting fees, with unknown fees placed last.
 
-University prestige, acceptance rates, fictional sample scores and student ratings do not determine personal-fit order. The site's Best Summer Programs rankings are a separate feature based on student ratings.
+University prestige, acceptance rates, and student ratings do not determine personal-fit order. The site's Best Summer Programs rankings are a separate feature based on student ratings.
 
 ## 5. Present the evidence
 
