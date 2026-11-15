@@ -60,7 +60,12 @@ function createMatchmakerHandler({root, readBody, send, getFeedback = () => ({re
       aid:clip(field(program.officialStructured,'financialAid',lang),500),
       source:program.officialStructured?.source || {},
     }));
-    const top = (matches.results || []).map(entry => ({id:entry.program.id,reasons:entry.reasons,checks:entry.checks,feedback:getFeedback(entry.program.id)}));
+    const top = await Promise.all((matches.results || []).map(async entry => ({
+      id: entry.program.id,
+      reasons: entry.reasons,
+      checks: entry.checks,
+      feedback: await getFeedback(entry.program.id),
+    })));
     const schema = {
       type:'object',additionalProperties:false,required:['reply','profilePatch','references'],properties:{
         reply:{type:'string'},

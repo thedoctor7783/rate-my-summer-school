@@ -1,5 +1,12 @@
 {
   "name": "rate-my-summer-school",
   "private": true,
-  "scripts": { "start": "node server.js", "test": "node smoketest.js" }
+  "scripts": {
+    "start": "node server.js",
+    "start:postgres": "node server-postgres.js",
+    "test": "node smoketest.js"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
 }

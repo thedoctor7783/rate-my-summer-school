@@ -15,7 +15,11 @@ const { DatabaseSync } = require('node:sqlite');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 4173);
-const DATA_DIR = path.join(ROOT, 'data');
+// In production, a mounted disk keeps accounts and student submissions after
+// a service restart. Local development continues to use ./data.
+const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
+const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGIN || 'https://thedoctor7783.github.io')
+  .split(',').map(value => value.trim()).filter(Boolean);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'ratemysummerschool.sqlite'));
 db.exec(`
@@ -62,6 +66,15 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
   // page into {"type":"Buffer","data":[…]} in the browser.
   res.end(Buffer.isBuffer(body) || typeof body === 'string' ? body : JSON.stringify(body));
 }
+function applyCors(req, res) {
+  const origin = String(req.headers.origin || '');
+  if (!ALLOWED_ORIGINS.includes(origin)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
+  res.setHeader('Vary', 'Origin');
+}
 function body(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
@@ -84,9 +97,10 @@ function sessionUser(req) {
 function createSession(res, userId) {
   const id = randomBytes(32).toString('hex'), now = Date.now(), expires = now + 1000 * 60 * 60 * 24 * 14;
   db.prepare('INSERT INTO sessions (id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)').run(id, userId, expires, now);
-  res.setHeader('Set-Cookie', `rms_session=${id}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 14}`);
+  const sameSite = process.env.NODE_ENV === 'production' ? 'SameSite=None; Secure' : 'SameSite=Lax';
+  res.setHeader('Set-Cookie', `rms_session=${id}; HttpOnly; ${sameSite}; Path=/; Max-Age=${60 * 60 * 24 * 14}`);
 }
-function destroySession(req, res) { const sid = cookies(req).rms_session; if (sid) db.prepare('DELETE FROM sessions WHERE id=?').run(sid); res.setHeader('Set-Cookie', 'rms_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'); }
+function destroySession(req, res) { const sid = cookies(req).rms_session; if (sid) db.prepare('DELETE FROM sessions WHERE id=?').run(sid); const sameSite = process.env.NODE_ENV === 'production' ? 'SameSite=None; Secure' : 'SameSite=Lax'; res.setHeader('Set-Cookie', `rms_session=; HttpOnly; ${sameSite}; Path=/; Max-Age=0`); }
 function isLoopback(req) {
   return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(String(req.socket.remoteAddress || ''));
 }
@@ -255,6 +269,10 @@ async function api(req, res, url) {
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
+    applyCors(req, res);
+    if (req.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
+      res.writeHead(204); return res.end();
+    }
     if (url.pathname.startsWith('/api/')) return await api(req, res, url);
     const requested = url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname);
     const file = path.resolve(ROOT, '.' + requested);
@@ -266,4 +284,4 @@ http.createServer(async (req, res) => {
     console.error(error);
     return send(res, 500, { error:'Server error' });
   }
-}).listen(PORT, '127.0.0.1', () => console.log(`RateMySummerSchool running at http://localhost:${PORT}`));
+}).listen(PORT, '0.0.0.0', () => console.log(`RateMySummerSchool running on port ${PORT}`));

@@ -376,17 +376,26 @@
     if (q.type === 'category-grid') return { type:q.type, total:0, items:q.subItems.map(function (s) { return { key:s.key, label:s.label, dist:[0,0,0,0,0], n:0, sum:0 }; }) };
     return null;
   }
+  function apiURL(path) {
+    var base = String(window.RMS_API_BASE || '').replace(/\/+$/, '');
+    return base ? base + path : path;
+  }
+  function apiFetch(path, options) {
+    var request = Object.assign({}, options || {});
+    request.credentials = window.RMS_API_BASE ? 'include' : 'same-origin';
+    return fetch(apiURL(path), request);
+  }
   function postJSON(path, value) {
     if (!window.fetch || location.protocol === 'file:') return Promise.resolve(null);
     // Be explicit about the account session. Saved programs need the same
     // session cookie as Account, including when this is called from Rankings.
-    return fetch(path, { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(value) })
+    return apiFetch(path, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(value) })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; });
   }
   function authRequest(path, value) {
     if (!window.fetch || location.protocol === 'file:') return Promise.resolve({ ok:false, error:'offline' });
-    return fetch(path, { method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(value || {}) })
+    return apiFetch(path, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(value || {}) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (data) { return { ok:r.ok, data:data }; }); })
       .then(async function (result) {
         if (result.ok && result.data.user) {
@@ -401,11 +410,11 @@
   function localOwnerAccessRemote() { return authRequest('/api/auth/local-owner', {}); }
   function logoutRemote() {
     if (!window.fetch || location.protocol === 'file:') { logout(); accountSnapshot = null; return Promise.resolve(); }
-    return fetch('/api/auth/logout', { method:'POST', credentials:'same-origin' }).catch(function () {}).then(function () { logout(); accountSnapshot = null; });
+    return apiFetch('/api/auth/logout', { method:'POST' }).catch(function () {}).then(function () { logout(); accountSnapshot = null; });
   }
   function accountRequest(path, method, value) {
     if (!window.fetch || location.protocol === 'file:') return Promise.resolve({ ok:false, error:'offline' });
-    return fetch(path, { method:method, credentials:'same-origin', headers:{ 'Content-Type':'application/json' }, body:value === undefined ? undefined : JSON.stringify(value) })
+    return apiFetch(path, { method:method, headers:{ 'Content-Type':'application/json' }, body:value === undefined ? undefined : JSON.stringify(value) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (data) { return { ok:r.ok, data:data, error:data.error }; }); })
       .catch(function () { return { ok:false, error:'offline' }; });
   }
@@ -470,7 +479,7 @@
   }
   function hydrateRemote() {
     if (!window.fetch || location.protocol === 'file:') return Promise.resolve(false);
-    return fetch('/api/bootstrap').then(function (r) { return r.ok ? r.json() : null; }).then(function (payload) {
+    return apiFetch('/api/bootstrap').then(function (r) { return r.ok ? r.json() : null; }).then(function (payload) {
       if (!payload) return false;
       db.reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
       db.surveys = Array.isArray(payload.surveys) ? payload.surveys : [];

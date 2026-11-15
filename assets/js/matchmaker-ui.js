@@ -7,6 +7,8 @@
   const LABELS = { subjects:['Subjects','学科兴趣'], methods:['Learning methods','学习方式'], goals:['Summer goals','暑期目标'], formats:['Program format','项目形式'], excludedFormats:['Avoided formats','排除的项目形式'], completedGrade:['Grade completed before summer','暑期前完成的年级'], graduationYear:['High school graduation year','高中毕业年份'], budget:['Budget in USD','预算（美元）'], hardBudget:['Strict budget limit','严格预算上限'], aidNeeded:['Financial aid needed','需要经济资助'], availableStart:['Available from','最早可参加日期'], availableEnd:['Available until','最晚结束日期'], dateFlexible:['Flexible dates','日期灵活'], commuteLocations:['Commuting locations','可走读地点'], extraText:['Additional context','补充说明'], eligibilityAnswers:['Eligibility answers','资格补充信息'], sortBy:['Ordering','排序方式'], year:['Summer year','暑期年份'] };
   let lastRouteKey = '', ownerKey = '', saveTimer = null;
   let state, current, sequence = 0, aiEnabled = false, aiChecked = false, aiChecking = false, chatBusy = false;
+  function apiURL(path) { var base = String(window.RMS_API_BASE || '').replace(/\/+$/, ''); return base ? base + path : path; }
+  function apiOptions(options) { return Object.assign({ credentials: window.RMS_API_BASE ? 'include' : 'same-origin' }, options || {}); }
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function tr(en, zh) { return current && current.lang === 'zh' ? zh : en; }
   function text(value) {
@@ -279,7 +281,7 @@
     chatBusy = true; save(); renderCurrent();
     const token = sequence;
     try {
-      const response = await fetch('/api/matchmaker/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message,profile:state.profile,history:state.history.slice(-20).map(m => ({role:m.role,content:typeof m.content === 'string' ? m.content : text(m.content)})),lang:current.lang})});
+      const response = await fetch(apiURL('/api/matchmaker/chat'),apiOptions({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message,profile:state.profile,history:state.history.slice(-20).map(m => ({role:m.role,content:typeof m.content === 'string' ? m.content : text(m.content)})),lang:current.lang})}));
       if (!response.ok) throw new Error('Unavailable');
       const data = await response.json();
       if (!data || data.enabled !== true || typeof data.reply !== 'string') throw new Error('Unavailable');
@@ -338,7 +340,7 @@
   function checkAI() {
     if (aiChecked || aiChecking || typeof fetch !== 'function' || !/^https?:$/.test(location.protocol)) return;
     aiChecking = true;
-    fetch('/api/matchmaker/status').then(r => r.ok ? r.json() : null).then(data => {
+    fetch(apiURL('/api/matchmaker/status'),apiOptions()).then(r => r.ok ? r.json() : null).then(data => {
       aiEnabled = !!(data && data.enabled === true); aiChecked = true; aiChecking = false;
       if (!current || route().page !== 'results') return;
       const label = current.root.querySelector('#mm2-assistant-status'); if (label) label.textContent = aiEnabled ? tr('AI planning assistant + catalogue filters','AI 规划助手 + 目录筛选') : tr('Local catalogue assistant','本地目录匹配助手');
