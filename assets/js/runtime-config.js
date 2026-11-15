@@ -1,3 +1,3 @@
-// Set this to the hosted API URL at deployment time. Keeping it empty makes
-// local development use the same-origin server at http://127.0.0.1:4173.
-window.RMS_API_BASE = window.RMS_API_BASE || '';
+// Hosted production API. Keeping an existing value lets local development
+// override this before the application scripts load.
+window.RMS_API_BASE = window.RMS_API_BASE || 'https://ratemysummerschool-api.onrender.com';
