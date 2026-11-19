@@ -47,6 +47,10 @@ const State = {
   /* survey: { programId, context, contextIndex, contextComplete, currentRound,
      qIndex, answers:{r1:{},r2:{},r3:{},r4:{}}, doneRounds:[bool] } */
   survey: null,
+  /* The new conversational review is deliberately its own draft shape.
+     It stays in this browser until the reviewer explicitly signs in and
+     saves, so it cannot be confused with submissions from the legacy flow. */
+  reviewDraft: null,
   /* matchmaker: { grade, interests, goals, budget } */
   matchmaker: null,
   picker: { query: '', subjects: new Set(), methods: new Set(), filtersOpen: false, fromFinder: false },
@@ -59,6 +63,7 @@ function load() {
     if (raw) {
       const saved = JSON.parse(raw);
       if (saved.survey) State.survey = saved.survey;
+      if (saved.reviewDraft) State.reviewDraft = saved.reviewDraft;
       if (saved.matchmaker) State.matchmaker = saved.matchmaker;
     }
   } catch {}
@@ -67,6 +72,7 @@ function save() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       survey: State.survey,
+      reviewDraft: State.reviewDraft,
       matchmaker: State.matchmaker,
     }));
   } catch {}
@@ -679,7 +685,7 @@ function isAnswered(ri, q) {
   return true;
 }
 
-function renderSurvey(programId) {
+function renderLegacySurvey(programId) {
   ensureSurvey(programId);
   if (!State.survey.contextComplete) {
     renderSurveyContext(programId);
@@ -1147,6 +1153,309 @@ function renderThankYou(roundIdx) {
   $('#exit').addEventListener('click', () => { location.hash = '#/'; });
 }
 
+/* ===================== CONVERSATIONAL REVIEW V2 =====================
+ * Local-first, memory-led review flow.  This is intentionally separate from
+ * the retired four-round schema above so past submissions remain readable.
+ * A reviewer completes their story before any account gate appears. */
+const REVIEW_V2 = {
+  // Mix warm, neutral, and difficult descriptors throughout the list so a
+  // reviewer never feels nudged toward a "positive" answer by its order.
+  vibes: ['Inspiring', 'Stressful', 'Eye-opening', 'Competitive', 'Fun', 'Cliquey', 'Welcoming', 'Intense', 'Supportive', 'Disorganized', 'Relaxed', 'Underwhelming', 'Rigorous', 'Isolating', 'Social', 'Boring', 'Independent', 'Structured'],
+  reflectionPrompts: [
+    'Share your most memorable story about your program experience.',
+    'What did you like and dislike the most about the program (can be anything from lectures to late night parties).',
+    "If a friend were thinking about attending this program, what’s one thing you’d want them to know?"
+  ],
+  categories: [
+    {
+      id: 'academics', title: 'Academics', kicker: 'Learning, teaching, and the moments that stayed with you.',
+      fields: [
+        { key:'academic_rating', type:'stars', label:'Overall, how would you rate the academic experience?', helper:'Very dissatisfied → Very satisfied' },
+        { key:'workload', type:'select', label:'How heavy was the workload?', options:['Very heavy, took up most of my free time', 'Somewhat heavy, but manageable', 'Moderate', 'Fairly light', 'Very light'] },
+        { key:'instructors', type:'grid', label:'How would you rate your instructors?', na:true, items:['Teaching clarity', 'Engagement and enthusiasm', 'Encouragement of class discussion', 'Approachability and helpfulness outside class'] },
+        { key:'academic_memory', type:'open', optional:true, label:"What’s one class, professor, or academic moment that left an impression on you?", placeholder:'A few sentences are enough…' }
+      ]
+    },
+    {
+      id: 'studentLife', title: 'Student Life', kicker: 'The people, the pace, and what happened outside class.',
+      fields: [
+        { key:'life_rating', type:'stars', label:'Overall, how would you rate student life?', helper:'Very dissatisfied → Very satisfied' },
+        { key:'activities', type:'multi', label:'What was available outside class?', options:['Weekend trips or excursions', 'Daytime activities such as snacks or crafts', 'Evening events such as movie nights, games, or dances', 'Clubs or interest groups', 'Sports or outdoor recreation', 'Showcases or talent nights', 'Honestly not much', 'We made our own fun'], exclusive:'We made our own fun' },
+        { key:'making_friends', type:'select', label:'How easy was it to make friends?', options:['Very easy', 'Somewhat easy', 'Mixed experience', 'Somewhat difficult', 'Very difficult'] },
+        { key:'life_memory', type:'prompt', optional:true, label:'Pick one memory prompt, if you’d like to share more.', prompts:['What did a typical afternoon or weekend look like?', 'What do you wish the program had done differently?', 'What’s one special memory about people you met?'] }
+      ]
+    },
+    {
+      id: 'campusLife', title: 'Campus Life', kicker: 'The practical details that shape everyday life.',
+      fields: [
+        { key:'campus_ratings', type:'grid', label:'How would you rate the setting?', na:true, items:['Food', 'Dorms / Accommodation', 'Classrooms and study spaces', 'Recreation facilities and common areas'] },
+        { key:'safety', type:'stars', label:'How safe did you feel?', helper:'Very unsafe → Very safe' },
+        { key:'getting_around', type:'stars', label:'How convenient was it to get around?', helper:'Very inconvenient → Very convenient' },
+        { key:'nearby', type:'multi', label:'What was nearby?', options:['Good food', 'Grocery shopping', 'Public transportation', 'Shopping', 'Entertainment', 'Natural spaces', 'Healthcare and pharmacies', 'Cultural and historical landmarks'] },
+        { key:'campus_memory', type:'open', optional:true, label:'What was your favorite campus spot or place outside campus?', placeholder:'Tell us about it…' }
+      ]
+    },
+    {
+      id: 'outcomes', title: 'Outcomes', kicker: 'Anything you carried forward after the summer.',
+      fields: [
+        { key:'takeaway', type:'open', optional:true, label:'Tell us anything you walked away with after attending the program (it can be tangible like a certificate of completion, rec letters; it can also be intangible like friendships, a taste of college life etc).', placeholder:'There is no right kind of outcome…' }
+      ]
+    }
+  ]
+};
+
+function rvText(en, zh) { return L() === 'zh' ? (zh || en) : en; }
+function rvDraft(programId) {
+  if (!State.reviewDraft || State.reviewDraft.programId !== programId) {
+    State.reviewDraft = {
+      version: 2, programId, ownerId: window.SSDB.currentUser()?.id || null,
+      screen: 'context', activeCategory: null,
+      context: { attendedYear:'', trackCourse:'', format:'' },
+      general: { overall:'', value:'', vibes:[], reflectionPrompt:'', reflectionText:'' },
+      optional: { academics:{}, studentLife:{}, campusLife:{}, outcomes:{} },
+      awaitingAuth: false,
+    };
+    save();
+  }
+  return State.reviewDraft;
+}
+function rvPersist() { save(); }
+function rvProgramName(program) { return pickL(program?.name || { en:'Summer program', zh:'暑期项目' }); }
+function rvCategory(id) { return REVIEW_V2.categories.find(c => c.id === id); }
+function rvCompletedCategory(category, draft) {
+  const answers = draft.optional[category.id] || {};
+  return category.fields.some(field => {
+    const value = answers[field.key];
+    if (Array.isArray(value)) return value.length > 0;
+    if (value && typeof value === 'object') return Object.keys(value).length > 0;
+    return String(value || '').trim().length > 0;
+  });
+}
+function rvGeneralReady(draft) {
+  const g = draft.general;
+  return !!(g.overall && g.value && g.vibes.length && g.reflectionPrompt && String(g.reflectionText || '').trim());
+}
+function rvDraftNote() {
+  return `<p class="review-v2__draft-note">${esc(rvText('Draft kept on this device', '草稿保存在此设备上'))}</p>`;
+}
+function rvChoiceHTML(options, value, attrs, multi) {
+  const values = Array.isArray(value) ? value : [];
+  const variant = attrs.includes('data-rv-reflection-prompt') ? 'review-v2__choices--prompt' : '';
+  return `<div class="review-v2__choices ${multi ? 'review-v2__choices--tags' : ''} ${variant}">
+    ${options.map(option => {
+      const active = multi ? values.includes(option) : value === option;
+      return `<button type="button" class="review-v2__choice ${active ? 'is-selected' : ''}" ${attrs} data-value="${esc(option)}" aria-pressed="${active}">${esc(option)}</button>`;
+    }).join('')}
+  </div>`;
+}
+function rvStarsHTML(value, attrs) {
+  return `<div class="review-v2__stars" role="radiogroup">${[1,2,3,4,5].map(n => `<button type="button" ${attrs} data-value="${n}" class="${Number(value) >= n ? 'is-selected' : ''}" aria-label="${n} out of 5">★</button>`).join('')}</div>`;
+}
+function rvFieldHTML(field, answers, categoryId) {
+  const value = answers[field.key];
+  const fieldHead = `<div class="review-v2__question-head"><h3>${esc(field.label)}</h3>${field.optional ? `<span>${esc(rvText('Optional', '可选'))}</span>` : ''}</div>`;
+  const attrs = `data-rv-area="${esc(categoryId)}" data-rv-key="${esc(field.key)}"`;
+  let body = '';
+  if (field.type === 'stars') body = `${rvStarsHTML(value, `data-rv-star ${attrs}`)}${field.helper ? `<p class="review-v2__scale-note">${esc(field.helper)}</p>` : ''}`;
+  if (field.type === 'select') body = rvChoiceHTML(field.options, value, `data-rv-choice ${attrs}`, false);
+  if (field.type === 'multi') body = rvChoiceHTML(field.options, value || [], `data-rv-choice data-rv-multi="1" data-rv-exclusive="${esc(field.exclusive || '')}" ${attrs}`, true);
+  if (field.type === 'open') body = `<textarea class="review-v2__textarea" data-rv-text ${attrs} placeholder="${esc(field.placeholder || '')}">${esc(value || '')}</textarea>`;
+  if (field.type === 'grid') {
+    const grid = value && typeof value === 'object' ? value : {};
+    body = `<div class="review-v2__grid">${field.items.map(item => `<div class="review-v2__grid-row"><span>${esc(item)}</span><div>${[1,2,3,4,5].map(n => `<button type="button" data-rv-grid ${attrs} data-sub="${esc(item)}" data-value="${n}" class="${grid[item] === n ? 'is-selected' : ''}">${n}</button>`).join('')}${field.na ? `<button type="button" data-rv-grid ${attrs} data-sub="${esc(item)}" data-value="NA" class="review-v2__na ${grid[item] === 'NA' ? 'is-selected' : ''}">N/A</button>` : ''}</div></div>`).join('')}</div>`;
+  }
+  if (field.type === 'prompt') {
+    const promptKey = field.key + '_prompt';
+    const textKey = field.key + '_text';
+    body = `${rvChoiceHTML(field.prompts, answers[promptKey] || '', `data-rv-prompt data-rv-area="${esc(categoryId)}" data-rv-key="${esc(promptKey)}"`, false)}<textarea class="review-v2__textarea" data-rv-text data-rv-area="${esc(categoryId)}" data-rv-key="${esc(textKey)}" placeholder="${esc(rvText('A few sentences are enough…', '几句话就够了……'))}">${esc(answers[textKey] || '')}</textarea>`;
+  }
+  return `<section class="review-v2__question">${fieldHead}${body}</section>`;
+}
+function renderSurvey(programId, { preserveScroll = false } = {}) {
+  if (!programId) return renderSurveyProgramPicker();
+  const scrollTop = preserveScroll ? window.scrollY : 0;
+  const draft = rvDraft(programId);
+  const program = programById(programId);
+  const screen = draft.screen || 'context';
+  const shared = `${renderHeader('pick')}<main class="review-v2">`;
+  let body = '';
+  if (screen === 'context') body = rvContextView(draft, program);
+  else if (screen === 'general') body = rvGeneralView(draft, program);
+  else if (screen === 'reflection') body = rvReflectionView(draft, program);
+  else if (screen === 'topics') body = rvTopicsView(draft, program);
+  else if (screen === 'category') body = rvCategoryView(draft, program);
+  else if (screen === 'review') body = rvReviewView(draft, program);
+  else if (screen === 'thanks') body = rvThanksView(program);
+  $('#app').innerHTML = `${shared}${body}</main>`;
+  bindHeaderEvents();
+  bindReviewV2();
+  if (preserveScroll) {
+    requestAnimationFrame(() => window.scrollTo({ top: scrollTop, behavior: 'instant' }));
+  } else {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+}
+function renderSurveyProgramPicker() {
+  const lang = L();
+  const copy = lang === 'zh' ? {
+    eyebrow: '分享你的体验',
+    title: '你想评价哪个项目？',
+    lede: '先选择你参加过的夏校，我们会在问卷中自动记住它。',
+    placeholder: '搜索项目或学校…',
+    empty: '没有找到匹配项目。试试学校名称或项目名称。',
+    choose: '选择并开始评价',
+    back: '返回搜索项目'
+  } : {
+    eyebrow: 'SHARE YOUR EXPERIENCE',
+    title: 'Which program are you reviewing?',
+    lede: 'Choose the summer program you attended. We’ll keep it selected throughout your questionnaire.',
+    placeholder: 'Search a program or school…',
+    empty: 'No matching program yet. Try a program or school name.',
+    choose: 'Choose this program',
+    back: 'Back to Search Programs'
+  };
+  const programRows = (query = '') => {
+    const needle = normalizePickerText(query);
+    const matches = PROGRAMS.filter(p => !needle || normalizePickerText([pickL(p.name), pickL(p.host), p.city, p.state].join(' ')).includes(needle)).slice(0, 8);
+    return matches.length ? matches.map(p => `<button type="button" class="review-program-picker__option" data-review-program="${esc(p.id)}"><span><strong>${esc(pickL(p.name))}</strong><small>${esc(pickL(p.host))}${p.city ? ` · ${esc(p.city)}` : ''}</small></span><b>${esc(copy.choose)} →</b></button>`).join('') : `<p class="review-program-picker__empty">${esc(copy.empty)}</p>`;
+  };
+  $('#app').innerHTML = `${renderHeader('pick')}<main class="review-v2"><section class="review-v2__shell review-v2__shell--intro review-program-picker"><p class="review-v2__eyebrow">${esc(copy.eyebrow)}</p><h1>${esc(copy.title)}</h1><p class="review-v2__lede">${esc(copy.lede)}</p><label class="review-program-picker__search"><span>${esc(copy.placeholder)}</span><input type="search" id="reviewProgramSearch" placeholder="${esc(copy.placeholder)}" autocomplete="off"></label><div class="review-program-picker__results" id="reviewProgramResults">${programRows()}</div><div class="review-v2__footer"><a class="review-v2__back" href="#/pick">${esc(copy.back)}</a></div></section></main>`;
+  bindHeaderEvents();
+  const search = $('#reviewProgramSearch');
+  const results = $('#reviewProgramResults');
+  search?.addEventListener('input', () => { results.innerHTML = programRows(search.value); });
+  results?.addEventListener('click', event => {
+    const option = event.target.closest('[data-review-program]');
+    if (option) location.hash = `#/survey/${option.dataset.reviewProgram}`;
+  });
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+function rvContextView(draft, program) {
+  const c = draft.context;
+  return `<section class="review-v2__shell review-v2__shell--intro">
+    <p class="review-v2__eyebrow">${esc(rvText('YOUR SUMMER, YOUR STORY', '你的暑期，你的故事'))}</p>
+    <h1>${esc(rvText('Your Summer, Your Story', '你的暑期，你的故事'))}</h1>
+    <p class="review-v2__lede">${esc(rvText('A few quick questions, then share what you remember.', '几个简短问题，然后分享你记得的经历。'))}</p>
+    <div class="review-v2__program"><span>${esc(rvText('You’re reviewing', '你正在评价'))}</span><strong>${esc(rvProgramName(program))}</strong></div>
+    <div class="review-v2__panel review-v2__context">
+      <label><span>${esc(rvText('When did you attend?', '你在哪一年参加？'))}</span><input data-rv-context="attendedYear" value="${esc(c.attendedYear)}" placeholder="${esc(rvText('For example: Summer 2025', '例如：2025 年夏季'))}"></label>
+      <label><span>${esc(rvText('What track, course, or subject did you take?', '你参加了哪个方向、课程或学科？'))} <em>${esc(rvText('Optional', '可选'))}</em></span><input data-rv-context="trackCourse" value="${esc(c.trackCourse)}" placeholder="${esc(rvText('For example: Biology practicum', '例如：生物学实践课'))}"></label>
+      <div><span class="review-v2__label">${esc(rvText('How did you attend?', '你以什么形式参加？'))} <em>${esc(rvText('Optional', '可选'))}</em></span>${rvChoiceHTML(['Residential', 'Commuter', 'Online', 'Hybrid'], c.format, 'data-rv-context-choice data-rv-key="format"', false)}</div>
+    </div>
+    <div class="review-v2__footer"><a class="review-v2__back" href="#/program/${esc(program.id)}">${esc(rvText('Back to program', '返回项目'))}</a><button class="review-v2__primary" data-rv-next="general">${esc(rvText('Start my review', '开始评价'))}</button></div>${rvDraftNote()}
+  </section>`;
+}
+function rvGeneralView(draft, program) {
+  const g = draft.general;
+  return `<section class="review-v2__shell">
+    <div class="review-v2__progress"><span class="is-on"></span><span></span></div>
+    <p class="review-v2__eyebrow">${esc(rvText('GENERAL REVIEW · 1 OF 2', '总体评价 · 1/2'))}</p>
+    <h1>${esc(rvText('First impressions', '初印象'))}</h1>
+    <p class="review-v2__lede review-v2__lede--compact review-v2__lede--affirmation">${esc(rvText('Please answer the questions honestly and engage with your true feelings. Your answers could be the Eureka moment for the next student :)', '请诚实回答，并感受自己的真实想法。你的回答可能会成为下一位学生的 Eureka 时刻 :)'))}</p>
+    <div class="review-v2__panel">
+      <section class="review-v2__question"><div class="review-v2__question-head"><h3>${esc(rvText('Overall, how was your experience in this program?', '总体来说，你在这个项目中的体验如何？'))}</h3></div>${rvChoiceHTML(['Loved it', 'Liked it', 'Mixed feelings', 'Didn’t like it', 'Regretted it'], g.overall, 'data-rv-general data-rv-key="overall"', false)}</section>
+      <section class="review-v2__question"><div class="review-v2__question-head"><h3>${esc(rvText('Looking back, was it worth the time and money?', '回头看，它值得你投入的时间和金钱吗？'))}</h3></div>${rvChoiceHTML(['Definitely yes', 'Mostly yes', 'Not sure', 'Probably not', 'Definitely not'], g.value, 'data-rv-general data-rv-key="value"', false)}</section>
+      <section class="review-v2__question"><div class="review-v2__question-head"><h3>${esc(rvText('Pick up to THREE words that capture the vibe of your program.', '最多选三个词，概括这个项目的氛围。'))}</h3><span>${g.vibes.length}/3</span></div>${rvChoiceHTML(REVIEW_V2.vibes, g.vibes, 'data-rv-vibe', true)}</section>
+    </div>
+    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="context">${esc(rvText('Back', '返回'))}</button><button class="review-v2__primary" data-rv-next="reflection">${esc(rvText('Continue', '继续'))}</button></div>${rvDraftNote()}
+  </section>`;
+}
+function rvReflectionView(draft) {
+  const g = draft.general;
+  return `<section class="review-v2__shell review-v2__shell--story">
+    <aside class="review-v2__memory-strip" aria-hidden="true"><div class="review-v2__polaroid review-v2__polaroid--campus"></div><div class="review-v2__polaroid review-v2__polaroid--sunset"></div><p>${esc(rvText('A moment from that summer…', '那年夏天的一个瞬间……'))}</p></aside>
+    <div class="review-v2__story-main">
+      <div class="review-v2__story-top"><p class="review-v2__eyebrow">${esc(rvText('GENERAL REVIEW · 2 OF 2', '总体评价 · 2/2'))}</p><div class="review-v2__progress"><span class="is-on"></span><span class="is-on"></span><span></span><span></span></div></div>
+      <h1>${esc(rvText("There’s more to your summer than a rating. Tell us a little about it!", '暑期经历不止是一串评分。多讲一点吧！'))}</h1>
+      <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('You can pick one prompt to answer; a few sentences will be enough.', '选择一个提示回答即可；几句话就够了。'))}</p>
+      <div class="review-v2__panel"><section class="review-v2__question">${rvChoiceHTML(REVIEW_V2.reflectionPrompts, g.reflectionPrompt, 'data-rv-reflection-prompt', false)}<textarea class="review-v2__textarea review-v2__textarea--large" data-rv-general-text="reflectionText" placeholder="${esc(rvText('Write what you remember…', '写下你记得的事情……'))}">${esc(g.reflectionText || '')}</textarea></section></div>
+      <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="general">${esc(rvText('← Back', '← 返回'))}</button><button class="review-v2__primary" data-rv-next="topics">${esc(rvText('Continue →', '继续 →'))}</button></div>${rvDraftNote()}
+    </div>
+  </section>`;
+}
+function rvTopicsView(draft, program) {
+  return `<section class="review-v2__shell review-v2__shell--topics">
+    <p class="review-v2__eyebrow">${esc(rvText('YOUR MEMORIES', '你的回忆'))}</p><h1>${esc(rvText('Have more memories to share?', '还有更多回忆想分享吗？'))}</h1>
+    <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('Choose any topic you have thoughts about. Entirely optional.', '选择任何你有想法的主题。全部可选。'))}</p>
+    <div class="review-v2__topic-grid">${REVIEW_V2.categories.map(category => { const done = rvCompletedCategory(category, draft); return `<button class="review-v2__topic-card ${done ? 'is-done' : ''}" data-rv-topic="${category.id}"><span>${done ? '✓' : '＋'}</span><h2>${esc(category.title)}</h2><p>${esc(category.kicker)}</p><small>${esc(done ? rvText('Added to your draft', '已加入草稿') : rvText('Optional', '可选'))}</small></button>`; }).join('')}</div>
+    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="reflection">${esc(rvText('Back', '返回'))}</button><button class="review-v2__primary" data-rv-go="review">${esc(rvText('Review my answers', '查看我的回答'))}</button></div>${rvDraftNote()}
+  </section>`;
+}
+function rvCategoryView(draft) {
+  const category = rvCategory(draft.activeCategory) || REVIEW_V2.categories[0];
+  const answers = draft.optional[category.id] || (draft.optional[category.id] = {});
+  return `<section class="review-v2__shell">
+    <button class="review-v2__back review-v2__back--top" data-rv-go="topics">${esc(rvText('← Back to topics', '← 返回专题'))}</button>
+    <p class="review-v2__eyebrow">${esc(rvText('OPTIONAL TOPIC', '可选专题'))}</p><h1>${esc(category.title)}</h1><p class="review-v2__lede review-v2__lede--compact">${esc(category.kicker)}</p>
+    <div class="review-v2__panel">${category.fields.map(field => rvFieldHTML(field, answers, category.id)).join('')}</div>
+    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="topics">${esc(rvText('Back to topics', '返回专题'))}</button><button class="review-v2__primary" data-rv-go="topics">${esc(rvText('Done', '完成'))}</button></div>${rvDraftNote()}
+  </section>`;
+}
+function rvReviewView(draft, program) {
+  const selected = REVIEW_V2.categories.filter(c => rvCompletedCategory(c, draft));
+  return `<section class="review-v2__shell">
+    <p class="review-v2__eyebrow">${esc(rvText('READY TO SAVE', '准备保存'))}</p><h1>${esc(rvText('Your review, at a glance', '你的评价，一览'))}</h1>
+    <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('You can still go back and edit anything before saving.', '保存前，你仍可以返回修改任何内容。'))}</p>
+    <div class="review-v2__summary"><div><span>${esc(rvText('Program', '项目'))}</span><strong>${esc(rvProgramName(program))}</strong></div><div><span>${esc(rvText('General review', '总体评价'))}</span><strong>${esc(rvGeneralReady(draft) ? rvText('Completed', '已完成') : rvText('Needs a little more', '还差一点'))}</strong></div><div><span>${esc(rvText('Optional topics', '可选专题'))}</span><strong>${esc(selected.length ? selected.map(c => c.title).join(' · ') : rvText('Skipped for now', '暂时跳过'))}</strong></div></div>
+    <div class="review-v2__save-note"><strong>${esc(rvText('Save My Review', '保存我的评价'))}</strong><p>${esc(rvText('Sign in or create an account to save your answers and publish your review.', '登录或创建账户，以保存你的回答并发布评价。'))}</p></div>
+    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="topics">${esc(rvText('Back to topics', '返回专题'))}</button><button class="review-v2__primary" data-rv-save>${esc(rvText('Save My Review', '保存我的评价'))}</button></div>${rvDraftNote()}
+  </section>`;
+}
+function rvThanksView(program) {
+  return `<section class="review-v2__shell review-v2__thanks"><p class="review-v2__eyebrow">${esc(rvText('REVIEW SAVED', '评价已保存'))}</p><h1>${esc(rvText('Your review has been saved. Thank you for sharing your summer experience.', '你的评价已保存。感谢你分享自己的暑期经历。'))}</h1><p class="review-v2__lede">${esc(rvText('Your perspective can help the next student make a more informed choice.', '你的视角可以帮助下一位学生做出更明智的选择。'))}</p><a class="review-v2__primary" href="#/program/${esc(program.id)}">${esc(rvText('Back to program', '返回项目'))}</a></section>`;
+}
+function bindReviewV2() {
+  const draft = State.reviewDraft;
+  if (!draft) return;
+  $$('[data-rv-context]').forEach(input => input.addEventListener('input', () => { draft.context[input.dataset.rvContext] = input.value; rvPersist(); }));
+  $$('[data-rv-context-choice]').forEach(button => button.addEventListener('click', () => { draft.context[button.dataset.rvKey] = button.dataset.value; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-general]').forEach(button => button.addEventListener('click', () => { draft.general[button.dataset.rvKey] = button.dataset.value; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-vibe]').forEach(button => button.addEventListener('click', () => { const value = button.dataset.value, values = draft.general.vibes; draft.general.vibes = values.includes(value) ? values.filter(v => v !== value) : (values.length >= 3 ? values : [...values, value]); rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-reflection-prompt]').forEach(button => button.addEventListener('click', () => { draft.general.reflectionPrompt = button.dataset.value; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-general-text]').forEach(textarea => textarea.addEventListener('input', () => { draft.general[textarea.dataset.rvGeneralText] = textarea.value; rvPersist(); }));
+  $$('[data-rv-choice]').forEach(button => button.addEventListener('click', () => { const bucket = draft.optional[button.dataset.rvArea]; const key = button.dataset.rvKey, value = button.dataset.value; if (button.dataset.rvMulti) { const values = Array.isArray(bucket[key]) ? bucket[key] : []; const exclusive = button.dataset.rvExclusive; bucket[key] = values.includes(value) ? values.filter(v => v !== value) : (value === exclusive ? [value] : [...values.filter(v => v !== exclusive), value]); } else bucket[key] = value; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-star]').forEach(button => button.addEventListener('click', () => { const bucket = draft.optional[button.dataset.rvArea]; bucket[button.dataset.rvKey] = Number(button.dataset.value); rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-grid]').forEach(button => button.addEventListener('click', () => { const bucket = draft.optional[button.dataset.rvArea]; const values = bucket[button.dataset.rvKey] || {}; values[button.dataset.sub] = button.dataset.value === 'NA' ? 'NA' : Number(button.dataset.value); bucket[button.dataset.rvKey] = values; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-text]').forEach(textarea => textarea.addEventListener('input', () => { draft.optional[textarea.dataset.rvArea][textarea.dataset.rvKey] = textarea.value; rvPersist(); }));
+  $$('[data-rv-prompt]').forEach(button => button.addEventListener('click', () => { draft.optional[button.dataset.rvArea][button.dataset.rvKey] = button.dataset.value; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
+  $$('[data-rv-topic]').forEach(button => button.addEventListener('click', () => { draft.activeCategory = button.dataset.rvTopic; draft.screen = 'category'; rvPersist(); renderSurvey(draft.programId); }));
+  $$('[data-rv-go]').forEach(button => button.addEventListener('click', () => { draft.screen = button.dataset.rvGo; rvPersist(); renderSurvey(draft.programId); }));
+  $$('[data-rv-next]').forEach(button => button.addEventListener('click', () => {
+    const next = button.dataset.rvNext;
+    if (next === 'reflection' && !(draft.general.overall && draft.general.value && draft.general.vibes.length)) return rvShowError(rvText('Please answer the three quick questions first.', '请先完成三个简短问题。'));
+    if (next === 'topics' && !(draft.general.reflectionPrompt && String(draft.general.reflectionText || '').trim())) return rvShowError(rvText('Choose one prompt and write a few sentences before continuing.', '继续前请选择一个提示并写几句话。'));
+    draft.screen = next; rvPersist(); renderSurvey(draft.programId);
+  }));
+  const saveButton = $('[data-rv-save]');
+  if (saveButton) saveButton.addEventListener('click', () => rvSaveReview());
+}
+function rvShowError(message) {
+  const existing = $('.review-v2__error');
+  if (existing) existing.remove();
+  const el = document.createElement('p'); el.className = 'review-v2__error'; el.textContent = message;
+  $('.review-v2__footer')?.before(el);
+}
+function rvSaveReview() {
+  const draft = State.reviewDraft;
+  if (!rvGeneralReady(draft)) { draft.screen = 'general'; rvPersist(); renderSurvey(draft.programId); return; }
+  if (!window.SSDB.currentUser()) {
+    draft.awaitingAuth = true; rvPersist();
+    location.hash = '#/login';
+    return;
+  }
+  const scoreMap = { 'Loved it':5, 'Liked it':4, 'Mixed feelings':3, 'Didn’t like it':2, 'Regretted it':1 };
+  const context = draft.context || {};
+  const who = [context.attendedYear, context.format].filter(Boolean).join(' · ');
+  try {
+    window.SSDB.recordRound(draft.programId, 'conversational-v2', { context, general:draft.general, optional:draft.optional, version:2 });
+    window.SSDB.addReview({ programId:draft.programId, author:window.SSDB.currentUser().name || rvText('Student', '学生'), who, stars:scoreMap[draft.general.overall] || 3, text:draft.general.reflectionText });
+  } catch (err) {
+    rvShowError(rvText('We could not save your review just yet. Your draft is still safe on this device.', '暂时无法保存评价。草稿仍安全地保存在此设备上。'));
+    return;
+  }
+  draft.screen = 'thanks'; draft.awaitingAuth = false; rvPersist(); renderSurvey(draft.programId);
+}
+
 /* ============================ LANDING / PICKER ======================= */
 
 const GUIDED_SUBJECT_ORDER = [
@@ -1476,12 +1785,7 @@ function renderPicker(filter) {
   const clearFilters = $('#clearFilters');
   const toggle = $('#filterToggle');
   $('#programCatalogWriteReview')?.addEventListener('click', () => {
-    const hint = $('#programCatalogReviewHint');
-    hint.hidden = false;
-    hint.textContent = lang === 'zh'
-      ? '请从下方选择你参加过的项目，即可开始写评价。'
-      : 'Choose the program you attended below to start writing a review.';
-    grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    location.hash = '#/survey';
   });
   $('#editGuidedChoices')?.addEventListener('click', () => { State.guided.step = 1; });
   const updateResults = () => {
@@ -1743,9 +2047,529 @@ function programCardHTML(p, lang, matchedLabels = []) {
 
 /* ============================ PROGRAM PROFILE ======================= */
 
+function programSummaryIcon(type) {
+  const paths = {
+    location: '<path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
+    format: '<path d="m3 9 9-6 9 6-9 6-9-6Z"/><path d="M7 12v5c3 2 7 2 10 0v-5"/>',
+    host: '<path d="M4 21V9l8-5 8 5v12M9 21v-6h6v6M3 21h18"/>',
+    academics: '<path d="M3 5.5c3-1.5 6-1.5 9 0 3-1.5 6-1.5 9 0V20c-3-1.5-6-1.5-9 0-3-1.5-6-1.5-9 0Z"/><path d="M12 5.5V20"/>',
+    students: '<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 4v2"/>',
+    campus: '<path d="m3 9 9-6 9 6H3ZM5 10v9m7-9v9m7-9v9M3 21h18"/>',
+    outcomes: '<path d="M4 4h16v5a8 8 0 0 1-16 0V4Z"/><path d="M8 21h8M12 17v4M4 7H2v2a4 4 0 0 0 4 4M20 7h2v2a4 4 0 0 1-4 4"/>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[type] || paths.academics}</svg>`;
+}
+
+/* Program experience pages ---------------------------------------------------
+ * Student-generated scores, distributions, and stories are only rendered
+ * after verified responses exist.  The page never falls back to layout/demo
+ * data, so visitors cannot mistake a placeholder for student feedback.
+ */
+
+function isYYGSProgramId(id) {
+  return id === 'yygs' || /yale-young-global-scholars|yygs/i.test(String(id || ''));
+}
+
+function yygsPreviewCopy(lang) {
+  return lang === 'zh'
+    ? '示例预览 · 48 份虚构回答，仅用于确认页面布局'
+    : 'Sample preview · 48 fictional responses for layout review';
+}
+
+function yygsPlainValue(value, lang, fallback) {
+  const localized = value && typeof value === 'object' ? pickL(value) : value;
+  const translated = officialText(localized, lang);
+  const text = String(translated || localized || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/^[•\s]+/, '')
+    .split(/\n|•/)[0]
+    .trim();
+  return text || fallback;
+}
+
+function yygsHeaderFacts(program, lang) {
+  const zh = lang === 'zh';
+  const pending = zh ? '待官网确认' : 'To be confirmed';
+  const info = program?.officialInfo || {};
+  return {
+    title: yygsPlainValue(program?.name, lang, pending),
+    host: yygsPlainValue(program?.host, lang, pending),
+    dates: yygsPlainValue(info.programDates || program?.duration, lang, pending),
+    location: yygsPlainValue(program?.location, lang, pending),
+    format: yygsPlainValue(info.participationFormat, lang, pending)
+  };
+}
+
+function yygsPageHeader(active, lang, programId = 'yygs') {
+  const p = programById(programId) || programById('yygs');
+  const routeId = p?.id || programId || 'yygs';
+  const photo = campusPhotoFor(p, { id:'program-summary' });
+  const facts = yygsHeaderFacts(p, lang);
+  const tabs = [
+    ['overview', lang === 'zh' ? '概览' : 'Overview', `#/program/${routeId}`],
+    ['academics', lang === 'zh' ? '学术' : 'Academics', `#/program/${routeId}/academics`],
+    ['students', lang === 'zh' ? '学生生活' : 'Student Life', `#/program/${routeId}/students`],
+    ['campus', lang === 'zh' ? '校园生活' : 'Campus Life', `#/program/${routeId}/campus`],
+    ['outcomes', lang === 'zh' ? '项目收获' : 'Outcomes', `#/program/${routeId}/outcomes`]
+  ];
+  return `<section class="yygs-program-head">
+    <div class="yygs-program-head__main">
+      <img src="${esc(photo)}" alt="${esc(lang === 'zh' ? `${facts.title} 校园示意图` : `Illustrative ${facts.title} campus scene`)}">
+      <div class="yygs-program-head__content">
+        <h1>${esc(facts.title)}</h1>
+        <div class="yygs-program-head__meta">
+          <span class="yygs-program-head__host">${esc(facts.host)}</span>
+          <span>${programSummaryIcon('calendar')}<b>${esc(facts.dates)}</b></span>
+          <span>${programSummaryIcon('location')}<b>${esc(facts.location)}</b></span>
+          <span>${programSummaryIcon('format')}<b>${esc(facts.format)}</b></span>
+        </div>
+      </div>
+      <a class="yygs-program-head__review" href="#/survey/${esc(routeId)}">${esc(lang === 'zh' ? '写评价' : 'Write a review')}</a>
+    </div>
+    <nav class="yygs-tabs" aria-label="${esc(lang === 'zh' ? '项目页面' : 'Program pages')}">
+      ${tabs.map(tab => `<a class="${tab[0] === active ? 'is-active' : ''}" href="${tab[2]}">${esc(tab[1])}</a>`).join('')}
+    </nav>
+  </section>`;
+}
+
+function yygsBars(rows) {
+  return `<div class="yygs-bars">${rows.map(row => `<div class="yygs-bar"><span>${esc(row[0])}</span><i><b style="width:${Number(row[1]) || 0}%"></b></i><strong>${Number(row[1]) || 0}%</strong></div>`).join('')}</div>`;
+}
+
+function yygsDonut(values, center, ariaLabel) {
+  const colors = ['#006c38','#55a76d','#9bc58c','#cddfbe','#ecebe7'];
+  let cursor = 0;
+  const stops = values.map((value, index) => {
+    const start = cursor;
+    cursor += Number(value) || 0;
+    return `${colors[index]} ${start}% ${cursor}%`;
+  }).join(',');
+  return `<div class="yygs-donut" style="--yygs-donut:conic-gradient(${stops})" role="img" aria-label="${esc(ariaLabel)}"><span aria-hidden="true"></span></div>`;
+}
+
+function yygsLegend(labels, values) {
+  return `<ul class="yygs-legend">${labels.map((label, index) => `<li><i class="yygs-legend__dot yygs-legend__dot--${index + 1}"></i><span>${esc(label)}</span><strong>${values[index]}%</strong></li>`).join('')}</ul>`;
+}
+
+function yygsStorySamples(title, quote, author, lang) {
+  const zh = lang === 'zh';
+  const key = title.toLowerCase();
+  const authors = zh ? ['2025 年参与者', '2024 年参与者', '2025 年参与者'] : ['2025 Participant', '2024 Participant', '2025 Participant'];
+  const responses = (en, cn) => (zh ? cn : en).map((story, index) => ({ quote: story, author: authors[index] }));
+
+  if (/most memorable|最难忘/.test(key)) return responses(
+    [
+      'The Model UN simulation was the highlight. My group included students from five countries, and we stayed up until 2 a.m. revising our resolution. It was exhausting, exciting, and genuinely collaborative.',
+      'One evening our cohort sat outside after dinner and kept talking until curfew. Nothing official was planned, but that was the moment the group began to feel like a real community.',
+      'Presenting our final project was the moment I remember most. I was nervous, but everyone encouraged one another, and I left feeling much more confident than when I arrived.'
+    ],
+    [
+      '模拟联合国是我最难忘的经历。我们组有来自五个国家的学生，为了修改决议一直讨论到凌晨两点。虽然很累，但特别兴奋，也真的感受到合作。',
+      '有一天晚饭后，我们整个小组坐在外面聊天，一直聊到宵禁。那不是安排好的活动，却是大家真正成为一个集体的时刻。',
+      '最终项目展示是我记得最清楚的时刻。我本来很紧张，但大家一直互相鼓励，结束时我比刚来时自信了很多。'
+    ]
+  );
+  if (/like and dislike|喜欢与最不喜欢|最喜欢与最不喜欢/.test(key)) return responses(
+    [
+      'I loved how international and curious the cohort was. What I liked least was how packed the schedule could feel; some days I wanted more time to process everything.',
+      'The seminars and instructors were excellent, but the dining choices became repetitive by the second week.',
+      'I liked that people were ambitious without making everything competitive. I only wish we had been given more time to explore New Haven independently.'
+    ],
+    [
+      '我最喜欢的是同学来自不同国家，而且都很有好奇心。最不喜欢的是日程有时太满，有些天我很希望能多一点时间消化当天的内容。',
+      '研讨课和老师都很棒，但到了第二周，餐厅的选择开始有些重复。',
+      '我喜欢大家都很有目标，却不会把一切变成竞争。我只是希望能有更多时间自己探索纽黑文。'
+    ]
+  );
+  if (/friend were thinking|朋友考虑参加/.test(key)) return responses(
+    [
+      'Talk to people outside your assigned group from the first day. The program becomes much richer once you stop staying only with the people you already know.',
+      'You do not need to attend every optional event. Leave enough time to sleep and reflect, or the two weeks can become overwhelming.',
+      'Participate even when you feel unsure. Ask questions, volunteer ideas, and introduce yourself—the program gives back what you put into it.'
+    ],
+    [
+      '从第一天开始就主动认识分组以外的人。不要只和已经熟悉的人待在一起，这样项目体验会丰富很多。',
+      '不需要参加每一个可选活动。一定要留出睡觉和整理思绪的时间，不然两周会很容易让人疲惫。',
+      '即使不确定也要主动参与。多提问、表达想法、介绍自己——你投入多少，项目就会回馈多少。'
+    ]
+  );
+  if (/typical afternoon|典型下午/.test(key)) return responses(
+    [
+      'After class I usually grabbed dinner with friends, then went to an evening event or movie night. On weekends we explored New Haven together.',
+      'A typical afternoon meant snacks in the common room, a quick volleyball game, and then finishing assignments before the evening program.',
+      'We often visited a museum or café after class, then returned for dinner and whatever residential activity was planned that night.'
+    ],
+    [
+      '下课后我通常和朋友一起吃晚饭，然后参加晚间活动或电影之夜。周末我们会结伴探索纽黑文。',
+      '一个典型的下午通常是先在公共休息室吃零食、打一会儿排球，再在晚间活动前完成作业。',
+      '我们下课后常去博物馆或咖啡馆，然后回来吃晚饭，参加当晚安排的住宿生活动。'
+    ]
+  );
+  if (/wish you.d done differently|希望自己做过什么不同/.test(key)) return responses(
+    [
+      'I wish I had introduced myself to more people during the first few days instead of waiting for conversations to happen naturally.',
+      'I would protect my sleep more. I tried to do everything at first, and I enjoyed the program much more once I found a better balance.',
+      'I wish I had explored more of New Haven rather than spending every free hour inside the residence hall.'
+    ],
+    [
+      '我希望自己在最初几天能主动认识更多人，而不是等着对话自然发生。',
+      '我会更重视睡眠。刚开始我想参加所有活动，后来找到平衡之后反而更享受项目。',
+      '我希望自己能多探索一些纽黑文，而不是把所有空闲时间都留在宿舍。'
+    ]
+  );
+  if (/special memory involving|特别记忆/.test(key)) return responses(
+    [
+      'My cohort surprised one student with a birthday celebration in the common room. Everyone contributed something small, and it felt unexpectedly warm.',
+      'A late-night conversation with my roommate about our families and schools became one of the most meaningful parts of the program.',
+      'At the final dinner, we wrote short notes to one another. I still have mine, and they remind me how close the group became in only two weeks.'
+    ],
+    [
+      '我们在公共休息室给一位同学准备了生日惊喜。每个人都贡献了一点东西，氛围出乎意料地温暖。',
+      '有一次深夜，我和室友聊各自的家庭和学校，那次谈话成了整个项目里最有意义的记忆之一。',
+      '最后一顿晚餐时，我们给彼此写了小纸条。我现在还留着，也一直记得大家在短短两周里变得多么亲近。'
+    ]
+  );
+  if (/class, professor|课堂、教授|学术瞬间/.test(key)) return responses(
+    [
+      'The global health policy seminar stood out because the professor made us debate real trade-offs instead of searching for one correct answer.',
+      'In an ethics and technology workshop, classmates challenged an assumption I had never questioned before. I kept thinking about that discussion after the program ended.',
+      'An instructor stayed after class to help me narrow my research question. That conversation changed how I approach open-ended academic work.'
+    ],
+    [
+      '全球健康政策研讨课让我印象最深，因为老师让我们讨论真实世界的取舍，而不是寻找唯一正确答案。',
+      '在科技伦理工作坊里，同学们挑战了一个我从未质疑过的假设。项目结束后，我仍然常常想到那次讨论。',
+      '一位老师课后留下来帮我缩小研究问题。那次对话改变了我处理开放式学术任务的方式。'
+    ]
+  );
+  if (/favorite spot on campus|校园里的哪个地方/.test(key)) return responses(
+    [
+      'The Beinecke Rare Book & Manuscript Library was my favorite spot. It was peaceful, visually unforgettable, and a great place to explore Yale’s history.',
+      'I loved sitting on Cross Campus between activities. It was the easiest place to run into friends without planning anything.',
+      'The courtyard near Sterling Library became my quiet place to read or reset before the next session.'
+    ],
+    [
+      '贝内克珍本与手稿图书馆是我最喜欢的地方。那里很安静、视觉上也很震撼，是了解耶鲁历史的好去处。',
+      '我很喜欢在活动间隙坐在 Cross Campus。完全不用提前约，就能遇到认识的朋友。',
+      '斯特林图书馆附近的庭院成了我安静阅读、在下一场活动前重新调整状态的地方。'
+    ]
+  );
+  if (/outside campus|校外/.test(key)) return responses(
+    [
+      'The Yale University Art Gallery is close by, free, and worth visiting more than once because the collection is much larger than I expected.',
+      'Go to East Rock if your schedule allows. The view made it feel like we had briefly stepped outside the program bubble.',
+      'The small cafés downtown were good places to decompress with friends when we had a free afternoon.'
+    ],
+    [
+      '耶鲁大学美术馆很近、免费，而且值得去不止一次，因为馆藏比我想象中丰富很多。',
+      '如果时间允许，一定去 East Rock。那里的景色让我们短暂离开项目的“小泡泡”，换一种视角看城市。',
+      '市中心的小咖啡馆很适合在空闲的下午和朋友一起放松。'
+    ]
+  );
+  if (/walked away|参加项目后带走/.test(key)) return responses(
+    [
+      'I walked away with lifelong friends from around the world, a deeper understanding of global issues, and more confidence sharing my ideas.',
+      'The program helped me identify which subjects I genuinely want to study and made me more comfortable living independently.',
+      'I became less afraid of asking difficult questions. That confidence has stayed with me in school long after the summer ended.'
+    ],
+    [
+      '我带走了来自世界各地的长期友谊、对全球议题更深入的理解，以及表达自己想法的信心。',
+      '项目帮我更清楚地知道自己真正想学什么，也让我更适应独立生活。',
+      '我不再害怕提出困难的问题。夏天结束很久以后，这种信心仍然留在我的学习中。'
+    ]
+  );
+
+  return responses(
+    [quote, 'The experience gave me a clearer sense of what I value in a summer program.', 'The people and conversations stayed with me longer than any single scheduled activity.'],
+    [quote, '这段经历让我更清楚自己真正重视怎样的夏校体验。', '比起某一个正式活动，真正长久留在我记忆里的是人和彼此之间的谈话。']
+  ).map((story, index) => index === 0 ? { quote, author } : story);
+}
+
+function yygsStories(title, prompts, quote, author, lang) {
+  const storyGroups = prompts.map(prompt => yygsStorySamples(prompt || title, quote, author, lang));
+  const storyCount = Math.max(...storyGroups.map(group => group.length));
+  return `<section class="yygs-panel yygs-stories">
+    <div class="yygs-stories__head"><h2>${esc(title)}</h2><div class="yygs-story-nav" aria-label="${esc(lang === 'zh' ? '切换当前问题的学生回答' : 'Change student response for this prompt')}"><button class="yygs-story-prev" type="button" aria-label="${esc(lang === 'zh' ? '上一个回答' : 'Previous response')}">‹</button><div class="yygs-story-dots">${Array.from({ length: storyCount }, (_, index) => `<button class="${index === 0 ? 'is-active' : ''}" type="button" data-story-dot="${index}" aria-label="${esc((lang === 'zh' ? '回答 ' : 'Response ') + (index + 1))}"></button>`).join('')}</div><button class="yygs-story-next" type="button" aria-label="${esc(lang === 'zh' ? '下一个回答' : 'Next response')}">›</button></div></div>
+    <div class="yygs-stories__body">
+      <div class="yygs-stories__prompts">${prompts.map((prompt, index) => `<button class="${index === 0 ? 'is-active' : ''}" data-story-prompt="${index}" type="button">${esc(prompt)}</button>`).join('')}</div>
+      <div class="yygs-story-viewport">${storyGroups.map((stories, promptIndex) => `<div class="yygs-story-group ${promptIndex === 0 ? 'is-active' : ''}" data-story-group="${promptIndex}"><div class="yygs-story-track">${stories.map(story => `<blockquote class="yygs-story-slide"><span>“</span><p>${esc(story.quote)}</p><cite>— ${esc(story.author)}</cite></blockquote>`).join('')}</div></div>`).join('')}</div>
+    </div>
+  </section>`;
+}
+
+function bindYYGSStoryCarousels() {
+  if (State.yygsStoryIntervals) State.yygsStoryIntervals.forEach(clearInterval);
+  State.yygsStoryIntervals = [];
+  $$('.yygs-stories').forEach(carousel => {
+    const groups = $$('[data-story-group]', carousel);
+    const dots = $$('[data-story-dot]', carousel);
+    const prompts = $$('[data-story-prompt]', carousel);
+    if (!groups.length) return;
+    let promptIndex = 0;
+    let storyIndex = 0;
+    let pointerStart = null;
+    const activeSlides = () => $$('.yygs-story-slide', groups[promptIndex]);
+    const showStory = nextIndex => {
+      const slides = activeSlides();
+      const track = groups[promptIndex]?.querySelector('.yygs-story-track');
+      if (!track || !slides.length) return;
+      storyIndex = (nextIndex + slides.length) % slides.length;
+      track.style.transform = `translateX(-${storyIndex * 100}%)`;
+      dots.forEach((dot, dotIndex) => {
+        dot.hidden = dotIndex >= slides.length;
+        dot.classList.toggle('is-active', dotIndex === storyIndex);
+      });
+    };
+    const selectPrompt = nextPromptIndex => {
+      promptIndex = Math.max(0, Math.min(nextPromptIndex, groups.length - 1));
+      storyIndex = 0;
+      groups.forEach((group, groupIndex) => group.classList.toggle('is-active', groupIndex === promptIndex));
+      prompts.forEach((prompt, index) => prompt.classList.toggle('is-active', index === promptIndex));
+      showStory(0);
+    };
+    const restart = () => {
+      clearInterval(carousel._yygsTimer);
+      carousel._yygsTimer = setInterval(() => showStory(storyIndex + 1), 60000);
+    };
+    carousel.querySelector('.yygs-story-prev')?.addEventListener('click', () => { showStory(storyIndex - 1); restart(); });
+    carousel.querySelector('.yygs-story-next')?.addEventListener('click', () => { showStory(storyIndex + 1); restart(); });
+    dots.forEach((dot, dotIndex) => dot.addEventListener('click', () => { showStory(dotIndex); restart(); }));
+    prompts.forEach((prompt, index) => prompt.addEventListener('click', () => { selectPrompt(index); restart(); }));
+    carousel.addEventListener('pointerdown', event => { pointerStart = event.clientX; });
+    carousel.addEventListener('pointerup', event => {
+      if (pointerStart == null) return;
+      const distance = event.clientX - pointerStart;
+      pointerStart = null;
+      if (Math.abs(distance) < 48) return;
+      showStory(storyIndex + (distance < 0 ? 1 : -1));
+      restart();
+    });
+    carousel.addEventListener('pointercancel', () => { pointerStart = null; });
+    selectPrompt(0);
+    carousel._yygsTimer = setInterval(() => showStory(storyIndex + 1), 60000);
+    State.yygsStoryIntervals.push(carousel._yygsTimer);
+  });
+}
+
+function yygsOfficialLines(value, lang) {
+  const localized = value && typeof value === 'object' ? pickL(value) : value;
+  const translated = officialText(localized, lang);
+  return String(translated || localized || '')
+    .replace(/\r/g, '')
+    .split(/\n|•/)
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function yygsOfficialFact(title, value, lang, className = '') {
+  const lines = yygsOfficialLines(value, lang);
+  if (!lines.length) return '';
+  return `<article class="yygs-official-card ${className}">
+    <h3>${esc(title)}</h3>
+    <ul>${lines.map(line => `<li>${esc(line)}</li>`).join('')}</ul>
+  </article>`;
+}
+
+function yygsOfficialInfoHTML(lang, programId = 'yygs') {
+  const zh = lang === 'zh';
+  const program = programById(programId) || programById('yygs');
+  const info = program?.officialInfo || {};
+  const sourceUrl = info.sourceUrl || program?.source?.officialUrl || info.programUrl || program?.website;
+  const programUrl = info.programUrl || program?.website || sourceUrl;
+  const applicationUrl = info.applicationUrl || program?.applicationUrl;
+  const subjects = program?.discovery?.subjects || [];
+  const format = [info.participationFormat, info.sessionLength || program?.duration, info.academicCredit]
+    .map(value => yygsOfficialLines(value, lang)[0])
+    .filter(Boolean);
+  return `<section class="yygs-official-facts">
+    <div class="yygs-official-facts__head">
+      <div>
+        <p class="yygs-official-facts__eyebrow">${esc(zh ? '来自耶鲁全球青年学者项目' : 'From Yale Young Global Scholars')}</p>
+        <h2>${esc(zh ? '官方项目信息' : 'Official program information')}</h2>
+      </div>
+      ${programUrl ? `<a class="yygs-official-facts__source" href="${esc(programUrl)}" target="_blank" rel="noopener noreferrer">${esc(zh ? '查看项目官网' : 'View official program site')} ↗</a>` : ''}
+    </div>
+    <div class="yygs-official-grid">
+      ${yygsOfficialFact(zh ? '申请时间' : 'Dates & deadlines', info.applicationDeadline || program?.deadline, lang)}
+      ${yygsOfficialFact(zh ? '2027 项目时间' : '2027 sessions', info.programDates || program?.duration, lang)}
+      ${yygsOfficialFact(zh ? '费用与资助' : 'Tuition & aid', `${info.tuition || program?.tuition || ''}\n${info.financialAid || ''}`, lang)}
+      ${yygsOfficialFact(zh ? '申请资格' : 'Eligibility', info.eligibility, lang)}
+    </div>
+    <article class="yygs-official-format">
+      <div>
+        <h3>${esc(zh ? '形式与学术方向' : 'Format & academics')}</h3>
+        <p>${esc(format.join(' · '))}</p>
+        ${subjects.length ? `<div>${subjects.map(subject => `<i>${esc(officialText(subject, lang))}</i>`).join('')}</div>` : ''}
+      </div>
+      ${applicationUrl ? `<a href="${esc(applicationUrl)}" target="_blank" rel="noopener noreferrer">${esc(zh ? '准备申请？' : 'Ready to apply?')}</a>` : ''}
+    </article>
+  </section>`;
+}
+
+function yygsOverviewHTML(lang, programId = 'yygs') {
+  const zh = lang === 'zh';
+  const prompts = zh
+    ? ['分享你对项目最难忘的故事。','你最喜欢与最不喜欢项目的什么？','如果朋友考虑参加，你最想告诉他们什么？']
+    : ['Share your most memorable story about your program experience.','What did you like and dislike the most about the program?','If a friend were thinking about attending, what would you want them to know?'];
+  return `<div class="yygs-page-body yygs-page-body--overview">
+    <section class="yygs-panel yygs-glance">
+      <div class="yygs-panel__head"><h2>${esc(zh ? '学生体验概览' : 'Student Experience at a Glance')}</h2><span>${esc(zh ? '基于 48 份示例评价' : 'Based on 48 sample reviews')}</span></div>
+      <div class="yygs-glance__grid">
+        <div><strong>4.6 <small>/ 5</small></strong><span>${esc(zh ? '整体体验' : 'Overall experience')}</span></div>
+        <div><strong>92%</strong><span>${esc(zh ? '认为时间和花费值得' : 'Said it was worth the time and money')}</span></div>
+        <div><h3>${esc(zh ? '最常见的描述' : 'Commonly described as')}</h3><p>${(zh ? ['鼓舞人心','紧张充实','合作','国际化','有趣'] : ['Inspiring','Intense','Collaborative','Global','Fun']).map(item => `<i>${esc(item)}</i>`).join('')}</p></div>
+      </div>
+    </section>
+    ${yygsOfficialInfoHTML(lang, programId)}
+    ${yygsStories(zh ? '学生故事' : 'Student Stories', prompts, zh ? '模拟联合国是整个项目的亮点。我和来自五个国家的学生一起修改决议，直到凌晨两点。那既累人，也是我最兴奋、最有合作感的一次经历。' : 'The Model UN simulation was definitely the highlight. I was grouped with students from five different countries, and we ended up staying up until 2 a.m. revising our resolution. It was exhausting but also one of the most exciting and collaborative experiences I’ve had.', zh ? '2025 年参与者' : '2025 Participant', lang)}
+    <div class="yygs-category-grid">
+      ${[
+        ['academics', zh ? '学术' : 'Academics', zh ? '课程、教师、学习量等' : 'Courses, instructors, workload and more'],
+        ['students', zh ? '学生生活' : 'Student Life', zh ? '社交、活动与社区' : 'Social life, activities, and community'],
+        ['campus', zh ? '校园生活' : 'Campus Life', zh ? '住宿、餐饮、设施、安全与周边' : 'Housing, food, facilities, safety and nearby areas'],
+        ['outcomes', zh ? '项目收获' : 'Outcomes', zh ? '学生从项目中带走了什么' : 'What students took away from the program']
+      ].map(item => `<a href="#/program/${esc(programId)}/${item[0]}"><span>${programSummaryIcon(item[0])}</span><h3>${esc(item[1])}</h3><p>${esc(item[2])}</p><b>→</b></a>`).join('')}
+    </div>
+    <section class="yygs-overview-cta">
+      <div><h2>${esc(zh ? '参加过 YYGS 吗？' : 'Have experience with YYGS?')}</h2><p>${esc(zh ? '你的真实经历可以帮助下一位学生做决定。' : 'Your experience can help the next student decide.')}</p></div>
+      <div><a class="yygs-overview-cta__review" href="#/survey/${esc(programId)}">${esc(zh ? '写评价' : 'Write a review')}</a><a class="yygs-overview-cta__back" href="#/pick">← ${esc(zh ? '返回搜索项目' : 'Back to programs')}</a></div>
+    </section>
+  </div>`;
+}
+
+function yygsAcademicsHTML(lang) {
+  const zh = lang === 'zh';
+  return `<div class="yygs-page-body">
+    <div class="yygs-preview-note">${esc(yygsPreviewCopy(lang))}</div>
+    <div class="yygs-section-head"><h2>${esc(zh ? '学术' : 'Academics')}</h2><span>${esc(zh ? '基于 48 份示例评价' : 'Based on 48 sample reviews')}</span></div>
+    <div class="yygs-top-grid yygs-top-grid--academics">
+      <section class="yygs-panel yygs-rating-card"><h2>${esc(zh ? '学术体验' : 'Academic Experience')}</h2><strong>4.5 <small>/ 5</small></strong><p>${esc(zh ? '整体评分' : 'Overall rating')}</p></section>
+      <section class="yygs-panel"><h2>${esc(zh ? '学术工作量' : 'Academic Workload')}</h2><div class="yygs-donut-layout">${yygsDonut([12,28,41,14,5], zh ? '48\n份评价' : '48\nreviews', 'Academic workload sample distribution')}${yygsLegend(zh ? ['非常重','比较重','适中','比较轻','非常轻'] : ['Very heavy','Somewhat heavy','Moderate','Fairly light','Very light'], [12,28,41,14,5])}</div></section>
+    </div>
+    <section class="yygs-panel"><h2>${esc(zh ? '教师评分' : 'Instructor Ratings')}</h2>${yygsBars((zh ? ['讲解清晰度','投入与热情','鼓励课堂讨论','课外亲和力与帮助'] : ['Teaching clarity','Engagement and enthusiasm','Encouragement of class discussion','Approachability and helpfulness outside class']).map((label,index) => [label,[92,94,88,94][index]]))}</section>
+    ${yygsStories(zh ? '难忘的学术瞬间' : 'Memorable Academic Moments', [zh ? '哪一堂课、教授或学术瞬间给你留下了深刻印象？' : 'What’s one class, professor, or academic moment that left an impression on you?'], zh ? '全球卫生政策研讨会对我影响很大。教授鼓励我们讨论现实世界的取舍，和来自世界各地的同学深夜讨论，是项目里最有智力刺激的时刻之一。' : 'The seminar on global health policy was a standout for me. The professor encouraged us to debate real-world tradeoffs, and the late-night group discussions with classmates from around the world were some of the most intellectually energizing moments of the program.', zh ? '2025 年参与者' : '2025 Participant', lang)}
+  </div>`;
+}
+
+function yygsStudentLifeHTML(lang) {
+  const zh = lang === 'zh';
+  return `<div class="yygs-page-body">
+    <div class="yygs-preview-note">${esc(yygsPreviewCopy(lang))}</div>
+    <div class="yygs-section-head"><h2>${esc(zh ? '学生生活' : 'Student Life')}</h2><span>${esc(zh ? '基于 48 份示例评价' : 'Based on 48 sample reviews')}</span></div>
+    <div class="yygs-top-grid yygs-top-grid--student">
+      <section class="yygs-panel yygs-satisfaction"><h2>${esc(zh ? '学生生活满意度' : 'Student Life Satisfaction')}</h2><div><strong>4.5 <small>/ 5</small></strong><i></i><p><b>78%</b><span>${esc(zh ? '的学生感到满意（评分 4 或 5）' : 'of students were satisfied (rated 4 or 5)')}</span></p></div><div class="yygs-stars" aria-label="4.5 out of 5">★★★★<span class="yygs-half-star">★</span></div></section>
+      <section class="yygs-panel"><h2>${esc(zh ? '交朋友与融入有多容易？' : 'How easy was it to make friends and feel included?')}</h2><p class="yygs-subcopy">${esc(zh ? '学生回答的示例分布。' : 'Distribution of student responses about making friends and feeling included.')}</p><div class="yygs-donut-layout">${yygsDonut([41,30,18,7,4], '48\nreviews', 'Student inclusion sample distribution')}${yygsLegend(zh ? ['非常容易','比较容易','感受混合','比较困难','非常困难'] : ['Very easy','Somewhat easy','Mixed experience','Somewhat difficult','Very difficult'], [41,30,18,7,4])}</div></section>
+    </div>
+    <section class="yygs-panel"><h2>${esc(zh ? '课余活动' : 'Free-time Activities')}</h2><p class="yygs-subcopy">${esc(zh ? '学生通常在课余时间做什么？可多选。' : 'What did students usually do in their free time? Select all that apply.')}</p>${yygsBars((zh ? ['周末出行或短途旅行','白天活动（零食、手工等）','晚间活动（电影、游戏等）','社团或兴趣小组','运动或户外活动','表演或才艺之夜','活动不多，我们自己找乐子'] : ['Weekend trips or excursions','Daytime activities (e.g., snacks, crafts)','Evening events (e.g., movie nights, games)','Clubs or interest groups','Sports or outdoor recreation','Showcases or talent nights','Not much; we made our own fun']).map((label,index) => [label,[46,52,68,40,27,19,6][index]]))}</section>
+    ${yygsStories(zh ? '学生生活故事' : 'Student Life Stories', zh ? ['课后或周末的典型下午是什么样？','回头看，你希望自己做过什么不同的事？','和项目中认识的人有关的一段特别记忆？'] : ['What did a typical afternoon look like after class ended (or a typical weekend)?','Looking back, is there anything you wish you’d done differently during the program?','What’s one special memory involving the people you met at the program?'], zh ? '下课后，我通常和新朋友在餐厅吃晚饭，然后参加晚间活动。周末我和同组同学去附近的小镇一日游，那让我们更了解彼此。' : 'After class, I’d usually grab dinner with new friends at the dining hall, then we’d head to an evening event. On the weekend, I went on a day trip with my cohort to a nearby town, which was a great chance to explore and get to know people even better.', zh ? '示例参与者' : 'Sample Participant', lang)}
+  </div>`;
+}
+
+function yygsCampusHTML(lang) {
+  const zh = lang === 'zh';
+  return `<div class="yygs-page-body">
+    <div class="yygs-preview-note">${esc(yygsPreviewCopy(lang))}</div>
+    <div class="yygs-section-head"><h2>${esc(zh ? '校园生活' : 'Campus Life')}</h2><span>${esc(zh ? '基于 48 份示例评价' : 'Based on 48 sample reviews')}</span></div>
+    <section class="yygs-panel"><h2>${esc(zh ? '各方面评分' : 'Ratings by Aspect')}</h2><div class="yygs-aspect-grid">${(zh ? [['餐饮','4.3'],['宿舍／住宿','4.6'],['教室与学习空间','4.5'],['娱乐设施与公共空间','4.4']] : [['Food','4.3'],['Dorms / Accommodation','4.6'],['Classrooms & study spaces','4.5'],['Recreation facilities & common areas','4.4']]).map(item => `<article><h3>${esc(item[0])}</h3><strong>${item[1]} <small>/ 5</small></strong></article>`).join('')}</div></section>
+    <div class="yygs-split-ratings"><section class="yygs-panel"><h2>${esc(zh ? '安全感' : 'Safety')}</h2><p>${esc(zh ? '学生在校园感到多安全' : 'How safe students felt on campus')}</p><strong>4.8 <small>/ 5</small></strong></section><section class="yygs-panel"><h2>${esc(zh ? '校园出行' : 'Getting Around Campus')}</h2><p>${esc(zh ? '在校园内导航和出行有多方便' : 'How easy it was to navigate and get around campus')}</p><strong>4.6 <small>/ 5</small></strong></section></div>
+    <section class="yygs-panel"><h2>${esc(zh ? '周边便利度' : 'Nearby Access')}</h2><p class="yygs-subcopy">${esc(zh ? '认为各选项在项目附近容易到达的学生比例。' : '% of students who said each option was easy to access near the program.')}</p><div class="yygs-access-grid">${yygsBars((zh ? ['优质餐饮','杂货店','公共交通','购物'] : ['Good food','Grocery shopping','Public transportation','Shopping']).map((label,index) => [label,[92,75,83,67][index]]))}${yygsBars((zh ? ['娱乐','自然空间','医疗与药店','文化与历史地标'] : ['Entertainment','Natural spaces','Healthcare and pharmacies','Cultural and historical landmarks']).map((label,index) => [label,[65,88,56,85][index]]))}</div></section>
+    ${yygsStories(zh ? '学生推荐的地点' : 'Places Students Recommend', zh ? ['你最推荐未来学生去校园里的哪个地方？','校外有什么地方值得去看看？'] : ['Do you have a favorite spot on campus you’d recommend to future students?','Are there any places outside campus you’d recommend checking out?'], zh ? '贝内克珍本与手稿图书馆非常值得去，里面很震撼，也很安静。我也很喜欢耶鲁美术馆，离得很近，藏品很丰富。' : 'The Beinecke Rare Book & Manuscript Library is a must-see. It’s stunning inside, super peaceful, and a great place to explore Yale’s history and unique collections. I also loved the Yale Art Gallery—it’s close by and has an amazing range of art.', zh ? '2025 年参与者' : '2025 Participant', lang)}
+  </div>`;
+}
+
+function yygsOutcomesHTML(lang) {
+  const zh = lang === 'zh';
+  return `<div class="yygs-page-body">
+    <div class="yygs-preview-note">${esc(yygsPreviewCopy(lang))}</div>
+    <div class="yygs-section-head"><h2>${esc(zh ? '项目收获' : 'Outcomes')}</h2><span>${esc(zh ? '基于 48 份示例评价' : 'Based on 48 sample reviews')}</span></div>
+    <section class="yygs-panel"><h2>${esc(zh ? '学生带走了什么' : 'What Students Took Away')}</h2>${yygsBars((zh ? ['新友谊或人脉','学术知识或技能','大学生活体验','更强的信心或独立性','更清楚的学术兴趣','证书或推荐信','其他'] : ['New friendships or connections','Academic knowledge or skills','A taste of college life','Greater confidence or independence','A clearer sense of academic interests','Certificate or recommendation letter','Other']).map((label,index) => [label,[83,67,56,52,40,23,8][index]]))}</section>
+    <section class="yygs-panel yygs-takeaway-chips"><h2>${esc(zh ? '最常见的收获' : 'Most Common Takeaways')}</h2><p>${(zh ? ['友谊','清晰度','信心','技能','大学生活'] : ['Friendships','Clarity','Confidence','Skills','College life']).map(item => `<i>${esc(item)}</i>`).join('')}</p></section>
+    ${yygsStories(zh ? '学生收获' : 'Student Takeaways', [zh ? '告诉我们你参加项目后带走了什么，可以是具体的，也可以是无形的。' : 'Tell us anything you walked away with after attending the program. It can be tangible or intangible.'], zh ? '我带走了来自世界各地的终身友谊、对自己热爱的全球议题更深的理解，以及在分享观点和参与有意义讨论时更强的信心。' : 'I walked away with lifelong friends from around the world, a deeper understanding of global issues I’m passionate about, and a lot more confidence in sharing my ideas and engaging in meaningful discussions.', zh ? '2025 年参与者' : '2025 Participant', lang)}
+  </div>`;
+}
+
+function yygsEmptyStoryPanel(title, prompts, programId, lang) {
+  const zh = lang === 'zh';
+  return `<section class="yygs-panel yygs-stories yygs-stories--empty">
+    <div class="yygs-stories__head"><h2>${esc(title)}</h2><span class="yygs-awaiting">${esc(zh ? '等待已验证学生评价' : 'Awaiting verified student reviews')}</span></div>
+    <div class="yygs-stories__body">
+      <div class="yygs-stories__prompts">${prompts.map((prompt, index) => `<button class="${index === 0 ? 'is-active' : ''}" type="button" disabled>${esc(prompt)}</button>`).join('')}</div>
+      <div class="yygs-story-empty"><p>${esc(zh ? '首批已验证学生回答将在这里按问题呈现。' : 'Verified student responses will appear here, organized by prompt.')}</p><a href="#/survey/${esc(programId)}">${esc(zh ? '分享你的体验' : 'Share your experience')}</a></div>
+    </div>
+  </section>`;
+}
+
+function yygsGenericPage(active, lang, programId) {
+  const zh = lang === 'zh';
+  const program = programById(programId);
+  const labels = {
+    overview: zh ? '学生体验概览' : 'Student Experience at a Glance',
+    academics: zh ? '学术' : 'Academics',
+    students: zh ? '学生生活' : 'Student Life',
+    campus: zh ? '校园生活' : 'Campus Life',
+    outcomes: zh ? '项目收获' : 'Outcomes'
+  };
+  const prompts = {
+    overview: zh ? ['分享你对项目最难忘的故事。','你最喜欢与最不喜欢项目的什么？','如果朋友考虑参加，你最想告诉他们什么？'] : ['Share your most memorable story about your program experience.','What did you like and dislike the most about the program?','If a friend were thinking about attending, what would you want them to know?'],
+    academics: zh ? ['哪节课、哪位老师或哪个学术时刻让你印象最深？'] : ['What class, professor, or academic moment left an impression on you?'],
+    students: zh ? ['课后或周末的典型下午是什么样？','和项目中认识的人有关的一段特别记忆？'] : ['What did a typical afternoon or weekend look like?','What is one special memory involving people you met?'],
+    campus: zh ? ['你最推荐未来学生去校园里的哪个地方？','校外有什么地方值得去看看？'] : ['Do you have a favorite spot on campus you would recommend?','Are there places outside campus worth checking out?'],
+    outcomes: zh ? ['参加项目后，你带走了什么？'] : ['What did you walk away with after attending the program?']
+  };
+  const overview = active === 'overview';
+  const metricTitle = overview ? labels.overview : (zh ? `${labels[active]}体验` : `${labels[active]} Experience`);
+  const summaryTitle = overview ? (zh ? '真实学生视角' : 'Student perspectives') : (zh ? '等待第一批回答' : 'Awaiting the first responses');
+  const summaryCopy = zh ? '在收到已验证学生评价前，我们不会显示或推测评分。' : 'We do not show or infer scores until verified student reviews arrive.';
+  if (overview) {
+    const categoryCards = [
+      ['academics', zh ? '学术' : 'Academics', zh ? '课程、老师、学习负荷与更多内容' : 'Courses, instructors, workload, and more'],
+      ['students', zh ? '学生生活' : 'Student Life', zh ? '社交、活动与社区' : 'Social life, activities, and community'],
+      ['campus', zh ? '校园生活' : 'Campus Life', zh ? '住宿、餐饮、安全与周边环境' : 'Housing, food, safety, and nearby areas'],
+      ['outcomes', zh ? '项目收获' : 'Outcomes', zh ? '学生从项目中带走的收获' : 'What students took away from the program']
+    ];
+    const programName = pickL(program?.name || { en:'this program', zh:'这个项目' });
+    return `<div class="yygs-page-body yygs-page-body--overview">
+      <section class="yygs-panel yygs-glance yygs-glance--awaiting">
+        <div class="yygs-panel__head"><h2>${esc(labels.overview)}</h2><span>${esc(zh ? '等待已验证学生评价' : 'Awaiting verified student reviews')}</span></div>
+        <div class="yygs-glance__grid">
+          <div><strong>—</strong><span>${esc(zh ? '整体体验' : 'Overall experience')}</span></div>
+          <div><strong>—</strong><span>${esc(zh ? '评分将在收到评价后显示' : 'Ratings appear after verified reviews')}</span></div>
+          <div><h3>${esc(zh ? '学生如何描述它' : 'How students describe it')}</h3><p><i>${esc(zh ? '等待学生评价' : 'Awaiting student reviews')}</i></p></div>
+        </div>
+      </section>
+      ${yygsOfficialInfoHTML(lang, programId)}
+      ${yygsEmptyStoryPanel(zh ? '学生故事' : 'Student Stories', prompts.overview, programId, lang)}
+      <div class="yygs-category-grid">${categoryCards.map(item => `<a href="#/program/${esc(programId)}/${item[0]}"><span>${programSummaryIcon(item[0] === 'students' ? 'students' : item[0])}</span><h3>${esc(item[1])}</h3><p>${esc(item[2])}</p><b>→</b></a>`).join('')}</div>
+      <section class="yygs-overview-cta">
+        <div><h2>${esc(zh ? `参加过 ${programName} 吗？` : `Have experience with ${programName}?`)}</h2><p>${esc(zh ? '你的真实经历可以帮助下一位学生做决定。' : 'Your experience can help the next student decide.')}</p></div>
+        <div><a class="yygs-overview-cta__review" href="#/survey/${esc(programId)}">${esc(zh ? '写评价' : 'Write a review')}</a><a class="yygs-overview-cta__back" href="#/pick">← ${esc(zh ? '返回搜索项目' : 'Back to programs')}</a></div>
+      </section>
+    </div>`;
+  }
+  return `<div class="yygs-page-body yygs-page-body--generic">
+    <div class="yygs-section-head"><h2>${esc(labels[active] || labels.overview)}</h2><span>${esc(zh ? '等待已验证学生评价' : 'Awaiting verified student reviews')}</span></div>
+    <div class="yygs-top-grid yygs-top-grid--empty">
+      <section class="yygs-panel yygs-empty-metric"><h2>${esc(metricTitle)}</h2><strong>—</strong><p>${esc(zh ? '评分将在有足够已验证回答后显示。' : 'A rating will appear once enough verified responses are available.')}</p></section>
+      <section class="yygs-panel yygs-empty-summary"><h2>${esc(summaryTitle)}</h2><p>${esc(summaryCopy)}</p><span>${esc(zh ? '暂无学生数据' : 'No student data yet')}</span></section>
+    </div>
+    ${yygsEmptyStoryPanel(overview ? (zh ? '学生故事' : 'Student Stories') : (zh ? `${labels[active]}故事` : `${labels[active]} Stories`), prompts[active] || prompts.overview, programId, lang)}
+  </div>`;
+}
+
+function renderYYGSProgramPage(active, programId = 'yygs') {
+  const lang = L();
+  const content = yygsGenericPage(active, lang, programId);
+  $('#app').innerHTML = `${renderHeader('home')}<main class="yygs-review-page">${yygsPageHeader(active, lang, programId)}${content}</main>${renderFooter()}`;
+  bindHeaderEvents();
+  bindYYGSStoryCarousels();
+  window.scrollTo({ top:0, left:0, behavior:'auto' });
+}
+
 function renderProgram(id) {
   const lang = L();
   const p = programById(id);
+  if (!p) { location.hash = '#/pick'; return; }
+  renderYYGSProgramPage('overview', id); return;
   const d = programDisplayDetails(p, (PROGRAM_DETAILS && PROGRAM_DETAILS[id]) || {}, lang);
   const reviews = window.SSDB.getReviews(id);
   const user = window.SSDB.currentUser();
@@ -1832,37 +2656,188 @@ function renderProgram(id) {
     ? `<h3 class="subhead">${esc(title)}</h3><div class="reviews-list">${list.slice(0, 4).map(reviewCard).join('')}</div>`
     : '';
 
+  const cleanSummaryValue = value => {
+    const raw = String(value || '').replace(/^[\s•·-]+/, '').trim();
+    return raw.split(/\n/).map(line => line.replace(/^[\s•·-]+/, '').trim()).filter(Boolean)[0] || (lang === 'zh' ? '请查看项目官网' : 'See official program page');
+  };
+  const formatValue = p.officialInfo && p.officialInfo.participationFormat
+    ? officialText(cleanSummaryValue(p.officialInfo.participationFormat), lang)
+    : (lang === 'zh' ? '参与形式见官网' : 'See participation format');
+  const profileAverage = reviews.length
+    ? reviews.reduce((sum, review) => sum + Number(review.stars || 0), 0) / reviews.length
+    : 0;
+  const isHarvardPreCollegeExemplar = id === 'catalog-001-harvard-pre-college-program';
+  const exemplarReview = isHarvardPreCollegeExemplar ? {
+    average:4.6,
+    worthIt:92,
+    count:37,
+    vibe:['Inspiring','Rigorous','Welcoming','Social','Structured'],
+    stories:[
+      {
+        author:lang === 'zh' ? '2026 年住宿学生' : '2026 residential participant',
+        who:lang === 'zh' ? '最难忘的故事' : 'Most memorable story',
+        stars:5,
+        text:lang === 'zh'
+          ? '第一周我还不确定自己能不能跟上。后来一次晚课结束后，我们在宿舍公共区继续聊课堂上的问题。那一刻我第一次觉得，大学生活可能真的就是这样——有挑战，也有让人兴奋的同伴。'
+          : 'During the first week I was not sure I could keep up. After one evening class, a few of us kept discussing the day’s ideas in the common room. It was the first time college felt real—challenging, exciting, and surprisingly welcoming.'
+      },
+      {
+        author:lang === 'zh' ? '2026 年住宿学生' : '2026 residential participant',
+        who:lang === 'zh' ? '喜欢与不喜欢' : 'Liked and disliked',
+        stars:4,
+        text:lang === 'zh'
+          ? '我最喜欢的是讨论课和认识来自不同地方的朋友。作业量比我预期的大，但老师很愿意在课后解释。餐饮选择有点重复，不过整体体验仍然很值得。'
+          : 'I loved the seminar discussions and meeting people from different places. The workload was heavier than I expected, but the instructors were generous with help after class. Dining became repetitive, though the overall experience still felt worth it.'
+      },
+      {
+        author:lang === 'zh' ? '2025 年住宿学生' : '2025 residential participant',
+        who:lang === 'zh' ? '给朋友的建议' : 'Advice to a friend',
+        stars:5,
+        text:lang === 'zh'
+          ? '不要只看课程名称。真正决定体验的是你愿不愿意主动提问、参加活动，以及和同学一起探索校园和城市。给自己留一点休息时间。'
+          : 'Do not choose only by the course title. Your experience depends on asking questions, joining activities, and making time to explore campus and the city with friends. Leave yourself a little time to rest, too.'
+      }
+    ],
+    categories:{
+      academics:{
+        stat:lang === 'zh' ? '4.6 / 5 学术体验' : '4.6 / 5 academic experience',
+        details:lang === 'zh' ? ['学习量：偏重但可控','教师：清晰 4.7 · 热情 4.8 · 讨论 4.6 · 课外帮助 4.5'] : ['Workload: somewhat heavy but manageable','Instructors: clarity 4.7 · enthusiasm 4.8 · discussion 4.6 · outside help 4.5'],
+        quote:lang === 'zh' ? '“课堂真的有挑战，但老师会认真对待我们的想法。”' : '“The classes were challenging in a good way, and the instructors took our ideas seriously.”'
+      },
+      students:{
+        stat:lang === 'zh' ? '4.5 / 5 学生生活' : '4.5 / 5 student life',
+        details:lang === 'zh' ? ['交朋友与融入：比较容易','课外活动：周末出行 · 晚间活动 · 运动 · 兴趣小组'] : ['Making friends and feeling included: somewhat easy','Free time: weekend trips · evening events · sports · interest groups'],
+        quote:lang === 'zh' ? '“我最怀念的是认识了兴趣相近的人，以及我们深夜的聊天。”' : '“I most remember meeting people with similar interests and our late-night conversations.”'
+      },
+      campus:{
+        stat:lang === 'zh' ? '4.4 / 5 校园生活' : '4.4 / 5 campus life',
+        details:lang === 'zh' ? ['餐饮 3.8 · 住宿 4.2 · 教室 4.7 · 公共空间 4.3','安全感 4.7 · 校园出行 4.5 · 周边交通和餐饮方便'] : ['Food 3.8 · dorms 4.2 · classrooms 4.7 · common spaces 4.3','Safety 4.7 · getting around 4.5 · easy access to transit and food'],
+        quote:lang === 'zh' ? '“我最喜欢傍晚去河边散步，再和朋友一起回宿舍。”' : '“My favorite routine was walking by the river at sunset before heading back to the dorm with friends.”'
+      },
+      outcomes:{
+        stat:lang === 'zh' ? '学生带走的收获' : 'What students walked away with',
+        details:lang === 'zh' ? ['更清楚自己的学术兴趣 · 更有信心参与大学课堂','友谊 · 大学生活体验 · 结业证明'] : ['Clearer academic interests · more confidence in college-level classes','Friendships · a taste of college life · certificate of completion'],
+        quote:lang === 'zh' ? '“项目让我知道自己想继续探索什么，也让我对大学申请更有信心。”' : '“The program helped me see what I want to keep exploring and made college feel less intimidating.”'
+      }
+    }
+  } : null;
+  const heroPhoto = campusPhotoFor(p, { id:'program-summary' });
+  const logo = programLogoUrl(p) || p.image || '';
+  const displayedStories = exemplarReview ? exemplarReview.stories : reviews;
+  const firstStory = displayedStories[0] || null;
+  const summaryCategories = [
+    {
+      key:'academics',
+      icon:'academics',
+      title:lang === 'zh' ? '学术体验' : 'Academics',
+      body:lang === 'zh' ? '课程、教学、学术强度与学习方式。' : 'Coursework, teaching, academic intensity, and how students learn.',
+      reviews:academicsReviews,
+      href:`#/program/${id}/academics`
+    },
+    {
+      key:'students',
+      icon:'students',
+      title:lang === 'zh' ? '学生生活' : 'Student Life',
+      body:lang === 'zh' ? '同伴、归属感、社交氛围与日常节奏。' : 'Peers, belonging, social atmosphere, and the rhythm of daily life.',
+      reviews:lifeReviews,
+      href:`#/program/${id}/students`
+    },
+    {
+      key:'campus',
+      icon:'campus',
+      title:lang === 'zh' ? '校园生活' : 'Campus Life',
+      body:lang === 'zh' ? '住宿、餐饮、安全、设施与周边环境。' : 'Housing, food, safety, facilities, and the surrounding area.',
+      reviews:campusReviews,
+      href:`#/program/${id}/campus`
+    },
+    {
+      key:'outcomes',
+      icon:'outcomes',
+      title:lang === 'zh' ? '项目收获' : 'Outcomes',
+      body:lang === 'zh' ? '技能、成长、方向感与项目结束后的影响。' : 'Skills, growth, direction, and what lasted after the program.',
+      reviews:gotOutReviews,
+      href:`#/program/${id}/outcomes`
+    }
+  ];
+  const summaryCategoryHTML = summaryCategories.map(category => {
+    const exemplarCategory = exemplarReview && exemplarReview.categories[category.key];
+    const quote = category.reviews[0];
+    return `<a class="program-summary-card ${exemplarCategory ? 'program-summary-card--complete' : ''}" href="${esc(category.href)}">
+      <span class="program-summary-card__icon">${programSummaryIcon(category.icon)}</span>
+      <span class="program-summary-card__copy">
+        <span class="program-summary-card__title">${esc(category.title)}</span>
+        <span class="program-summary-card__body">${esc(category.body)}</span>
+        ${exemplarCategory ? `<span class="program-summary-card__stat">${esc(exemplarCategory.stat)}</span><span class="program-summary-card__details">${exemplarCategory.details.map(detail => `<i>${esc(detail)}</i>`).join('')}</span><span class="program-summary-card__quote">${esc(exemplarCategory.quote)}</span>` : `<span class="program-summary-card__quote ${quote ? '' : 'is-empty'}">${quote ? `“${esc((quote.text || '').slice(0, 180))}${(quote.text || '').length > 180 ? '…' : ''}”` : esc(lang === 'zh' ? '等待已验证的学生反馈' : 'Awaiting verified student feedback')}</span>`}
+      </span>
+      <span class="program-summary-card__arrow" aria-hidden="true">›</span>
+    </a>`;
+  }).join('');
+
   const html = `
     ${renderHeader('home')}
-    <main>
-      <section class="profile-hero">
-        <div class="profile-hero__inner">
-          <div>
-            <div class="muted">${esc(pickL(p.location))}</div>
+    <main class="program-summary-page ${isHarvardPreCollegeExemplar ? 'program-summary-page--exemplar' : ''}">
+      <section class="program-summary-hero">
+        <div class="program-summary-hero__photo" style="background-image:url('${esc(heroPhoto)}')"></div>
+        <div class="program-summary-hero__veil"></div>
+        <div class="program-summary-hero__inner">
+          <div class="program-summary-hero__copy">
+            <p class="program-summary-eyebrow">${esc(lang === 'zh' ? '美国大学预科暑期项目' : 'PRE-COLLEGE SUMMER PROGRAM')}</p>
             <h1>${esc(pickL(p.name))}</h1>
-            <div class="meta">${esc(pickL(p.host))}</div>
-            <p class="tagline">${esc(pickL(p.tagline))}</p>
-            <div class="profile-hero__actions">
-              <a class="btn--solid" href="${user ? '#/survey/'+p.id : '#/login'}">${esc(t('profileWriteReview', lang))} ›</a>
-              <a class="btn--pill" href="${esc(p.website)}" target="_blank" rel="noopener">${esc(t('profileVisit', lang))}</a>
-              <button type="button" class="btn--pill" id="profile-save-program" aria-pressed="${window.SSDB.inList(id)}">${esc(window.SSDB.inList(id) ? (lang === 'zh' ? '已收藏 ✓' : 'Saved ✓') : (lang === 'zh' ? '收藏项目' : 'Save program'))}</button>
+            <p class="program-summary-hero__tagline">${esc(pickL(p.tagline) || (lang === 'zh' ? `由 ${pickL(p.host)} 主办的暑期项目。` : `A summer program hosted by ${pickL(p.host)}.`))}</p>
+            <div class="program-summary-meta">
+              <span>${programSummaryIcon('location')}<strong>${esc(cleanSummaryValue(pickL(p.location)))}</strong></span>
+              <span>${programSummaryIcon('calendar')}<strong>${esc(cleanSummaryValue(pickL(p.duration)))}</strong></span>
+              <span>${programSummaryIcon('format')}<strong>${esc(formatValue)}</strong></span>
+              <span>${programSummaryIcon('host')}<strong>${esc(pickL(p.host))}</strong></span>
             </div>
           </div>
-          <div class="profile-hero__score">
-            ${isDiscoveryListing ? `
-              <div class="profile-hero__listing-label">${esc(listingLabel)}</div>
-              <h3>${esc(listingTitle)}</h3>
-              <p class="sub">${esc(listingBody)}</p>
-              <a class="profile-hero__official-link" href="${esc(p.website)}" target="_blank" rel="noopener">${esc(listingLinkLabel)}</a>
-            ` : `
-              <div class="big">${previewOverall.toFixed(1)}</div>
-              <div class="stars-lg"><span class="stars-precise" style="--pct:${(previewOverall/5)*100}%;font-size:24px" aria-label="${previewOverall.toFixed(1)} of 5"></span></div>
-              <div class="sub">${previewReviewCount} ${esc(t('profileReviewCount', lang))}</div>
-              ${verifiedFacts && verifiedFacts.acceptance ? `<div class="sub" style="margin-top:6px">${esc(t('profileAcceptance', lang))}: ${esc(verifiedFacts.acceptance.value)}</div>` : ''}
-            `}
-          </div>
+          ${logo ? `<div class="program-summary-hero__mark"><img src="${esc(logo)}" alt="${esc(pickL(p.host))} logo"></div>` : ''}
         </div>
       </section>
+
+      <section class="program-summary-dashboard" aria-label="${esc(lang === 'zh' ? '项目概览' : 'Program overview')}">
+        <div class="program-stories">
+          <div class="program-summary-section-head">
+            <div><p class="program-summary-eyebrow">${esc(lang === 'zh' ? '学生真实讲述' : 'STUDENT PERSPECTIVES')}</p><h2>${esc(lang === 'zh' ? '学生故事' : 'Student Stories')}</h2></div>
+            <p>${esc(exemplarReview ? (lang === 'zh' ? '示例预览 · 非已发布评价' : 'Exemplar preview · not published reviews') : (lang === 'zh' ? '来自参加过该项目的学生。' : 'Real experiences from past participants.'))}</p>
+          </div>
+          ${exemplarReview ? `<div class="program-story-tabs" aria-label="${esc(lang === 'zh' ? '故事类型' : 'Story types')}"><span class="is-active">${esc(lang === 'zh' ? '难忘故事' : 'Memories')}</span><span>${esc(lang === 'zh' ? '真实感受' : 'Honest opinions')}</span><span>${esc(lang === 'zh' ? '给朋友的建议' : 'Advice')}</span></div>` : ''}
+          ${firstStory ? `
+            <article class="program-story-feature">
+              <div class="program-story-feature__copy">
+                <span class="program-story-feature__quote">“</span>
+                <blockquote>${esc(firstStory.text || '')}</blockquote>
+                <p>— ${esc(firstStory.author || (lang === 'zh' ? '匿名学生' : 'Anonymous student'))}${firstStory.who ? ` · ${esc(firstStory.who)}` : ''}</p>
+              </div>
+              <div class="program-story-feature__photo" style="background-image:url('${esc(heroPhoto)}')" role="img" aria-label="${esc(lang === 'zh' ? '校园生活示意图' : 'Illustrative campus scene')}"></div>
+            </article>
+          ` : `
+            <div class="program-story-empty">
+              <div class="program-story-empty__mark">“</div>
+              <div><h3>${esc(lang === 'zh' ? '等待第一位学生分享' : 'Be the first to share this summer')}</h3><p>${esc(lang === 'zh' ? '经过验证的学生评价会显示在这里。' : 'Verified student stories will appear here once they are submitted.')}</p></div>
+              <a class="btn--solid" href="#/survey/${esc(id)}">${esc(lang === 'zh' ? '写下你的故事' : 'Write a review')}</a>
+            </div>
+          `}
+        </div>
+
+        <aside class="program-glance">
+          <p class="program-summary-eyebrow">${esc(lang === 'zh' ? '快速了解' : 'AT A GLANCE')}</p>
+          <h2>${esc(lang === 'zh' ? '项目一览' : 'At a Glance')}</h2>
+          <div class="program-glance__scores">
+            <div><span>${esc(lang === 'zh' ? '综合评分' : 'Overall rating')}</span><strong>${exemplarReview ? exemplarReview.average.toFixed(1) : (reviews.length ? profileAverage.toFixed(1) : '—')}${exemplarReview || reviews.length ? '<small>/5</small>' : ''}</strong></div>
+            <div><span>${esc(exemplarReview ? (lang === 'zh' ? '认为值得' : 'Worth it') : (lang === 'zh' ? '学生评价' : 'Student reviews'))}</span><strong>${exemplarReview ? exemplarReview.worthIt + '<small>%</small>' : (reviews.length || '—')}</strong></div>
+          </div>
+          <div class="program-glance__focus">
+            <span>${esc(exemplarReview ? (lang === 'zh' ? '学生眼中的氛围' : 'Student-described vibe') : (lang === 'zh' ? '项目特色' : 'Program focus'))}</span>
+            <div>${exemplarReview ? exemplarReview.vibe.map(value => `<b>${esc(value)}</b>`).join('') : (((p.discovery && [...(p.discovery.subjects || []), ...(p.discovery.methods || [])]) || []).slice(0,5).map(value => `<b>${esc(lang === 'zh' && window.SS_PROGRAM_DISCOVERY ? window.SS_PROGRAM_DISCOVERY.translations[value] || value : value)}</b>`).join('') || `<em>${esc(lang === 'zh' ? '查看官方项目详情' : 'See official program details')}</em>`)}</div>
+          </div>
+          <a class="program-glance__primary" href="#/program/${esc(id)}/students">${esc(lang === 'zh' ? '阅读学生故事' : 'Read student stories')} <span>→</span></a>
+          <button type="button" class="program-glance__save" id="profile-save-program" aria-pressed="${window.SSDB.inList(id)}">${esc(window.SSDB.inList(id) ? (lang === 'zh' ? '已收藏 ✓' : 'Saved ✓') : (lang === 'zh' ? '收藏项目' : 'Save program'))}</button>
+          <a class="program-glance__official" href="${esc(p.website)}" target="_blank" rel="noopener">${esc(lang === 'zh' ? '访问项目官网' : 'Official program website')} ↗</a>
+        </aside>
+      </section>
+
+      <section class="program-summary-grid">${summaryCategoryHTML}</section>
 
       <!-- Overview -->
       <section class="profile-section profile-section--narrow">
@@ -1879,61 +2854,7 @@ function renderProgram(id) {
         </div>
       </section>
 
-      <!-- Academics -->
-      <section class="profile-section profile-section--narrow">
-        <div class="profile-section__inner">
-          <h2>${esc(t('profileAcademics', lang))}</h2>
-          ${academicModuleHTML(id, lang, false)}
-          <a class="see-more-link" href="#/program/${esc(id)}/academics">${esc(t('seeMoreAcademics', lang))} ›</a>
-          ${reviewsSub(t('profileAcademicsReviews', lang), academicsReviews)}
-        </div>
-      </section>
-
-      <!-- Students — score sits directly under the title -->
-      <section class="profile-section profile-section--narrow" style="background:var(--bg-soft)">
-        <div class="profile-section__inner">
-          <h2>${esc(t('profileStudents', lang))}</h2>
-          ${studentLifeIntroHTML(id, lang, d)}
-          ${studentLifeBlocksHTML(id, lang, false)}
-          <a class="see-more-link" href="#/program/${esc(id)}/students">${esc(t('seeMoreStudents', lang))} ›</a>
-          ${reviewsSub(t('profileStudentLifeReviews', lang), lifeReviews)}
-        </div>
-      </section>
-
-      <!-- Campus Life -->
-      <section class="profile-section profile-section--narrow">
-        <div class="profile-section__inner">
-          <h2>${esc(t('profileCampus', lang))}</h2>
-          ${campusModuleHTML(id, lang, false)}
-          <a class="see-more-link" href="#/program/${esc(id)}/campus">${esc(t('seeMoreCampus', lang))} ›</a>
-          ${reviewsSub(t('profileCampusReviews', lang), campusReviews)}
-        </div>
-      </section>
-
-      <!-- Outcomes -->
-      <section class="profile-section profile-section--narrow" style="background:var(--bg-soft)">
-        <div class="profile-section__inner">
-          <h2>${esc(t('profileWhatYouGot', lang))}</h2>
-          ${outcomesModuleHTML(id, lang, false)}
-          <a class="see-more-link" href="#/program/${esc(id)}/outcomes">${esc(t('seeMoreOutcomes', lang))} ›</a>
-          ${reviewsSub(t('profileOutcomesReviews', lang), gotOutReviews)}
-        </div>
-      </section>
-
-      <!-- All reviews -->
-      <section class="profile-section profile-section--narrow">
-        <div class="profile-section__inner">
-          <h2>${esc(t('profileAllReviews', lang))}</h2>
-          ${reviews.length ? reviews.map(reviewCard).join('') : ''}
-          <div class="write-review-card">
-            <div><p class="experience-eyebrow">${esc(lang === 'zh' ? '分享真实体验' : 'STUDENT PERSPECTIVE')}</p>
-              <h3>${esc(lang === 'zh' ? '参加过这个项目？' : 'Attended this program?')}</h3>
-              <p>${esc(lang === 'zh' ? '填写问卷，帮助其他学生了解实际体验。' : 'Share what it was really like and help the next student decide.')}</p></div>
-            <a class="application-portal-button" href="#/survey/${esc(id)}">${esc(lang === 'zh' ? '填写问卷' : 'Write a review')} →</a>
-          </div>
-          <a class="profile-back-to-programs" href="#/pick">${esc(lang === 'zh' ? '← 返回项目列表' : '← Back to programs')}</a>
-        </div>
-      </section>
+      ${isHarvardPreCollegeExemplar ? `<div class="program-summary-back"><a class="profile-back-to-programs" href="#/pick">${esc(lang === 'zh' ? '← 返回项目列表' : '← Back to programs')}</a></div>` : `<section class="profile-section profile-section--narrow" id="program-reviews"><div class="profile-section__inner"><h2>${esc(t('profileAllReviews', lang))}</h2>${reviews.length ? reviews.map(reviewCard).join('') : ''}<div class="write-review-card"><div><p class="experience-eyebrow">${esc(lang === 'zh' ? '分享真实体验' : 'STUDENT PERSPECTIVE')}</p><h3>${esc(lang === 'zh' ? '参加过这个项目？' : 'Attended this program?')}</h3><p>${esc(lang === 'zh' ? '填写问卷，帮助其他学生了解实际体验。' : 'Share what it was really like and help the next student decide.')}</p></div><a class="application-portal-button" href="#/survey/${esc(id)}">${esc(lang === 'zh' ? '填写问卷' : 'Write a review')} →</a></div><a class="profile-back-to-programs" href="#/pick">${esc(lang === 'zh' ? '← 返回项目列表' : '← Back to programs')}</a></div></section>`}
     </main>
     ${renderFooter()}
   `;
@@ -2515,7 +3436,7 @@ function academicFeedbackStateHTML(id, lang, compact) {
     <span class="academic-feedback-state__eyebrow">${esc(copy.feedback)}</span>
     <h3>${esc(copy.feedbackWaiting)}</h3>
     ${compact ? '' : `<p>${esc(copy.feedbackWaitingBody)}</p>`}
-    <a class="academic-feedback-state__link" href="${user ? '#/survey/' + esc(id) : '#/login'}">${esc(copy.share)} →</a>
+    <a class="academic-feedback-state__link" href="#/survey/${esc(id)}">${esc(copy.share)} →</a>
   </div>`;
 }
 function academicExperienceSummaryHTML(id, lang, agg) {
@@ -2570,7 +3491,7 @@ function academicExperienceSummaryHTML(id, lang, agg) {
     <div class="academic-experience__grid">
       ${cards.map(function (card) { return `<article class="academic-experience-card${card.responses ? ' has-data' : ''}"><p>${esc(card.label)}</p><strong>${esc(card.value)}</strong><span>${esc(card.summary)}</span></article>`; }).join('')}
     </div>
-    ${hasAnyData ? '' : `<div class="academic-experience__empty"><p>${esc(copy.feedbackWaitingBody)}</p><a href="${user ? '#/survey/' + esc(id) : '#/login'}">${esc(copy.share)} →</a></div><a class="academic-related-reviews academic-experience__related-reviews" href="#/program/${esc(id)}/reviews">${esc(copy.viewRelatedReviews)}</a>`}
+    ${hasAnyData ? '' : `<div class="academic-experience__empty"><p>${esc(copy.feedbackWaitingBody)}</p><a href="#/survey/${esc(id)}">${esc(copy.share)} →</a></div><a class="academic-related-reviews academic-experience__related-reviews" href="#/program/${esc(id)}/reviews">${esc(copy.viewRelatedReviews)}</a>`}
   </section>`;
 }
 function programOverviewDecisionHTML(id, lang) {
@@ -3122,7 +4043,7 @@ function studentLifeReviewsHTML(id, lang) {
     const stars = Math.max(0, Math.min(5, Number(review.stars) || 0));
     return `<article class="review-card"><div class="avatar">${esc(author.slice(0, 2).toUpperCase())}</div><div><div class="row row--between"><div><strong>${esc(author)}</strong> <span class="muted">· ${esc(review.who || '')}</span></div><div class="mini-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div></div><p>${esc(review.text || '')}</p></div></article>`;
   }).join('');
-  return `<section class="experience-reviews experience-reviews--students"><header class="experience-reviews__head"><p>${esc(lang === 'zh' ? '学生亲述' : 'IN THEIR OWN WORDS')}</p><h2>${esc(lang === 'zh' ? '学生生活评价' : 'Student Life Reviews')}</h2></header><div class="experience-reviews__grid">${cards || `<div class="experience-reviews__empty"><p>${esc(lang === 'zh' ? '暂时还没有学生生活评价。' : 'No student life reviews yet.')}</p><a href="${window.SSDB.currentUser() ? '#/survey/' + esc(id) : '#/login'}">${esc(lang === 'zh' ? '写下第一条评价' : 'Write the first review')} →</a></div>`}</div></section>`;
+  return `<section class="experience-reviews experience-reviews--students"><header class="experience-reviews__head"><p>${esc(lang === 'zh' ? '学生亲述' : 'IN THEIR OWN WORDS')}</p><h2>${esc(lang === 'zh' ? '学生生活评价' : 'Student Life Reviews')}</h2></header><div class="experience-reviews__grid">${cards || `<div class="experience-reviews__empty"><p>${esc(lang === 'zh' ? '暂时还没有学生生活评价。' : 'No student life reviews yet.')}</p><a href="#/survey/${esc(id)}">${esc(lang === 'zh' ? '写下第一条评价' : 'Write the first review')} →</a></div>`}</div></section>`;
 }
 function studentLifeDetailHTML(id, lang) {
   const copy = studentLifeCopy(lang, id);
@@ -3175,7 +4096,7 @@ function studentLifeDetailHTML(id, lang) {
       </section>
     </div>
     ${studentLifeReviewsHTML(id, lang)}
-    <div class="experience-contribute"><div><h3>${esc(lang === 'zh' ? '分享你的体验' : 'Add your experience')}</h3><p>${esc(lang === 'zh' ? '你的回答会帮助下一位学生了解真实的学生生活。' : 'Your response helps the next student understand what student life actually felt like.')}</p></div><a class="application-portal-button" href="${window.SSDB.currentUser() ? '#/survey/' + esc(id) : '#/login'}">${esc(lang === 'zh' ? '写一篇评价' : 'Write a review')} →</a></div>
+    <div class="experience-contribute"><div><h3>${esc(lang === 'zh' ? '分享你的体验' : 'Add your experience')}</h3><p>${esc(lang === 'zh' ? '你的回答会帮助下一位学生了解真实的学生生活。' : 'Your response helps the next student understand what student life actually felt like.')}</p></div><a class="application-portal-button" href="#/survey/${esc(id)}">${esc(lang === 'zh' ? '写一篇评价' : 'Write a review')} →</a></div>
   </div>`;
 }
 function studentLifeHeadHTML(id, lang) {
@@ -3471,12 +4392,42 @@ function academicDetailHTML(id, lang) {
   return `<div class="academics-detail">${academicOfficialProfileHTML(id, lang)}${feedbackBlock}${formatBlock}</div>`;
 }
 
+function harvardPreCollegeExemplarDetail(section, lang) {
+  const isZh = lang === 'zh';
+  const previewLabel = `<p class="exemplar-detail__notice">${esc(isZh ? '示例预览 · 以下内容用于确认完整学生评价的呈现方式，并非已发布数据。' : 'Exemplar preview · The responses below demonstrate the full-review layout and are not published data.')}</p>`;
+  const rating = (label, value) => `<div class="exemplar-detail__rating"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+  const chips = values => `<div class="exemplar-detail__chips">${values.map(value => `<span>${esc(value)}</span>`).join('')}</div>`;
+  const response = (label, text) => `<article class="exemplar-detail__response"><p>${esc(label)}</p><blockquote>“${esc(text)}”</blockquote></article>`;
+  const sections = {
+    academics: `${previewLabel}<div class="exemplar-detail__grid">
+      <section class="exemplar-detail__panel"><h2>${esc(isZh ? '整体学术体验' : 'Overall academic experience')}</h2>${rating(isZh ? '学生评分' : 'Student rating','4.6 / 5')}</section>
+      <section class="exemplar-detail__panel"><h2>${esc(isZh ? '学术工作量' : 'Academic workload')}</h2><p class="exemplar-detail__answer">${esc(isZh ? '偏重，但可以应付' : 'Somewhat heavy, but manageable')}</p></section>
+      <section class="exemplar-detail__panel exemplar-detail__panel--wide"><h2>${esc(isZh ? '教师评价' : 'Instructor ratings')}</h2><div class="exemplar-detail__ratings">${rating(isZh ? '讲解清晰度' : 'Teaching clarity','4.7')}${rating(isZh ? '投入与热情' : 'Engagement and enthusiasm','4.8')}${rating(isZh ? '鼓励课堂讨论' : 'Encouragement of discussion','4.6')}${rating(isZh ? '课外帮助' : 'Helpfulness outside class','4.5')}</div></section>
+      <section class="exemplar-detail__panel exemplar-detail__panel--wide">${response(isZh ? '一个留下印象的课堂、教授或学术瞬间' : 'One class, professor, or academic moment that left an impression',isZh ? '有一次讨论课，老师没有急着给出答案，而是让每个人继续追问。那是我第一次觉得自己的观点真的被当作大学课堂的一部分。' : 'In one seminar, the instructor did not rush to give us an answer and kept asking us to push the idea further. It was the first time my perspective felt like a real part of a college classroom.')}</section>
+    </div>`,
+    students: `${previewLabel}<div class="exemplar-detail__grid">
+      <section class="exemplar-detail__panel"><h2>${esc(isZh ? '整体学生生活' : 'Overall student life')}</h2>${rating(isZh ? '学生评分' : 'Student rating','4.5 / 5')}<p class="exemplar-detail__micro">${esc(isZh ? '89% 的示例学生选择 4 或 5 分' : '89% of preview respondents selected 4 or 5')}</p></section>
+      <section class="exemplar-detail__panel"><h2>${esc(isZh ? '交朋友与融入' : 'Making friends and feeling included')}</h2><p class="exemplar-detail__answer">${esc(isZh ? '比较容易' : 'Somewhat easy')}</p></section>
+      <section class="exemplar-detail__panel exemplar-detail__panel--wide"><h2>${esc(isZh ? '项目提供的课余活动' : 'Free-time activities offered')}</h2>${chips(isZh ? ['周末出行','白天活动','晚间活动','兴趣小组','运动与户外活动'] : ['Weekend trips','Daytime activities','Evening events','Interest groups','Sports and outdoor recreation'])}</section>
+      <section class="exemplar-detail__panel exemplar-detail__panel--wide">${response(isZh ? '一个关于学生生活的回忆' : 'One student-life reflection',isZh ? '最特别的是我们那群人在课后一起吃东西、聊天。有些友谊不是活动安排出来的，而是在那些空白时间里自然形成的。' : 'The most special part was grabbing food and talking after class. Some friendships did not come from a scheduled activity; they formed naturally in the unplanned time between things.')}</section>
+    </div>`,
+    campus: `${previewLabel}<div class="exemplar-detail__grid">
+      <section class="exemplar-detail__panel exemplar-detail__panel--wide"><h2>${esc(isZh ? '校园设施评分' : 'Campus setting ratings')}</h2><div class="exemplar-detail__ratings">${rating(isZh ? '餐饮' : 'Food','3.8')}${rating(isZh ? '宿舍／住宿' : 'Dorms / accommodation','4.2')}${rating(isZh ? '教室与学习空间' : 'Classrooms and study spaces','4.7')}${rating(isZh ? '娱乐设施与公共空间' : 'Recreation and common areas','4.3')}</div></section>
+      <section class="exemplar-detail__panel"><h2>${esc(isZh ? '校园安全感' : 'Feeling safe on campus')}</h2>${rating(isZh ? '安全' : 'Safety','4.7 / 5')}</section>
+      <section class="exemplar-detail__panel"><h2>${esc(isZh ? '校园出行便利度' : 'Getting around campus')}</h2>${rating(isZh ? '便利度' : 'Convenience','4.5 / 5')}</section>
+      <section class="exemplar-detail__panel exemplar-detail__panel--wide"><h2>${esc(isZh ? '项目周边容易到达的地点' : 'Easy to access near the program')}</h2>${chips(isZh ? ['餐饮','公共交通','购物','自然空间','文化与历史地标'] : ['Food','Public transportation','Shopping','Natural spaces','Cultural and historical landmarks'])}</section>
+      <section class="exemplar-detail__panel exemplar-detail__panel--wide">${response(isZh ? '一个推荐给未来学生的地方' : 'One place to recommend to future students',isZh ? '傍晚可以沿着河边散步，再从校园慢慢走回宿舍。那段路很适合和朋友聊天，也是我最能感受到城市氛围的时候。' : 'Walk by the river near sunset and take the long way back to the dorm. It was the best time to talk with friends and the moment when the city felt most memorable.')}</section>
+    </div>`,
+    outcomes: `${previewLabel}<div class="exemplar-detail__grid exemplar-detail__grid--single"><section class="exemplar-detail__panel exemplar-detail__panel--wide"><h2>${esc(isZh ? '参加项目后，你带走了什么？' : 'What did you walk away with after the program?')}</h2>${chips(isZh ? ['更清楚的学术兴趣','参与大学课堂的信心','来自不同地方的友谊','大学生活体验','结业证明'] : ['Clearer academic interests','Confidence in college-level classes','Friendships from different places','A taste of college life','Certificate of completion'])}${response(isZh ? '学生的回答' : 'Student response',isZh ? '我离开时不只是多了一张证书。我更确定自己喜欢怎样的课堂，也更敢在不熟悉的环境里主动认识别人和表达观点。' : 'I left with more than a certificate. I understood what kind of classroom I enjoy, and I felt more confident introducing myself, asking questions, and speaking up in unfamiliar settings.')}</section></div>`
+  };
+  return `<div class="exemplar-detail">${sections[section] || ''}</div>`;
+}
+
 function renderProgramAcademics(id) {
   const lang = L();
   const p = programById(id);
   if (!p) { location.hash = '#/'; return; }
-  const profile = academicProfileFor(id);
-  renderProgramReport(id, 'academics', profile ? pickL(profile.title) : t('academicDetailTitle', lang), academicModuleHTML(id, lang, true));
+  renderYYGSProgramPage('academics', id);
 }
 
 function renderProgramAcademicReviews(id) {
@@ -3490,7 +4441,7 @@ function renderProgramAcademicReviews(id) {
   const cards = reviews.map(function (review) {
     return `<article class="review-card"><div class="avatar">${esc((review.author || '?').slice(0,2).toUpperCase())}</div><div><div class="row row--between"><div><strong>${esc(review.author || (lang === 'zh' ? '匿名' : 'Anonymous'))}</strong> <span class="muted">· ${esc(review.who || '')}</span></div><div class="mini-stars">${'★'.repeat(review.stars || 0)}${'☆'.repeat(5 - (review.stars || 0))}</div></div><p>${esc(review.text || '')}</p></div></article>`;
   }).join('');
-  const body = `<section class="academic-related-review-page"><p class="academic-related-review-page__intro">${esc(copy.relatedReviewsIntro)}</p>${cards || `<div class="academic-related-review-page__empty"><p>${esc(copy.noRelatedReviews)}</p><a href="${window.SSDB.currentUser() ? '#/survey/' + esc(id) : '#/login'}">${esc(copy.share)} →</a></div>`}<a class="see-more-link" href="#/program/${esc(id)}/academics">‹ ${esc(lang === 'zh' ? '返回学术页面' : 'Back to Academics')}</a></section>`;
+  const body = `<section class="academic-related-review-page"><p class="academic-related-review-page__intro">${esc(copy.relatedReviewsIntro)}</p>${cards || `<div class="academic-related-review-page__empty"><p>${esc(copy.noRelatedReviews)}</p><a href="#/survey/${esc(id)}">${esc(copy.share)} →</a></div>`}<a class="see-more-link" href="#/program/${esc(id)}/academics">‹ ${esc(lang === 'zh' ? '返回学术页面' : 'Back to Academics')}</a></section>`;
   renderProgramReport(id, 'academic-reviews', copy.relatedReviewsTitle, body);
 }
 
@@ -3532,19 +4483,19 @@ function renderProgramStudents(id) {
   const lang = L();
   const p = programById(id);
   if (!p) { location.hash = '#/'; return; }
-  renderProgramReport(id, 'students', t('studentDetailTitle', lang), studentLifeModuleHTML(id, lang, true));
+  renderYYGSProgramPage('students', id);
 }
 function renderProgramCampus(id) {
   const lang = L();
   const p = programById(id);
   if (!p) { location.hash = '#/'; return; }
-  renderProgramReport(id, 'campus', t('profileCampus', lang), campusModuleHTML(id, lang, true));
+  renderYYGSProgramPage('campus', id);
 }
 function renderProgramOutcomes(id) {
   const lang = L();
   const p = programById(id);
   if (!p) { location.hash = '#/'; return; }
-  renderProgramReport(id, 'outcomes', t('profileWhatYouGot', lang), outcomesModuleHTML(id, lang, true));
+  renderYYGSProgramPage('outcomes', id);
 }
 
 /* ============================ RANKINGS ============================== *
@@ -3917,6 +4868,17 @@ function renderAuthPrompt() {
  * The review gate resumes the written-review question; the older Round 1 save
  * gate remains a defensive fallback for legacy drafts. */
 function afterAuthSuccess() {
+  // Conversational-review drafts are written locally before authentication.
+  // On sign-in, return to the final confirmation screen without discarding
+  // anything the student has already written.
+  if (State.reviewDraft && State.reviewDraft.awaitingAuth) {
+    State.reviewDraft.awaitingAuth = false;
+    State.reviewDraft.ownerId = window.SSDB.currentUser()?.id || null;
+    save();
+    location.hash = '#/survey/' + State.reviewDraft.programId;
+    render();
+    return;
+  }
   if (State.survey && !State.survey.ownerId) {
     State.survey.ownerId = window.SSDB.currentUser()?.id || null;
     save();
@@ -4230,7 +5192,7 @@ function parseHash() {
   if (parts[0] === 'program' && parts[1] && parts[2] === 'campus')    return { name:'program-campus',    id: parts[1] };
   if (parts[0] === 'program' && parts[1] && parts[2] === 'outcomes')  return { name:'program-outcomes',  id: parts[1] };
   if (parts[0] === 'program' && parts[1]) return { name:'program', id: parts[1] };
-  if (parts[0] === 'survey' && parts[1]) return { name:'survey', id: parts[1] };
+  if (parts[0] === 'survey') return { name:'survey', id: parts[1] || null };
   if (parts[0] === 'rankings') return { name:'rankings', cat: parts[1] || 'overall', page: parseInt(parts[2], 10) || 1 };
   if (parts[0] === 'matchmaker' && parts[1] === 'results') return { name:'matchmaker-results' };
   if (parts[0] === 'matchmaker') return { name:'matchmaker' };

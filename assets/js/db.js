@@ -39,38 +39,7 @@
     var seed = JSON.parse(JSON.stringify(window.SSDATA.PROGRAMS || []));
     return seed;
   }
-  /* function seedReviews() {
-    // Legacy demo reviews removed in favour of real submitted reviews.
-    var out = [];
-    var programs = window.SSDATA.PROGRAMS || [];
-    var lang = (window.SSI18N && window.SSI18N.currentLang) ? window.SSI18N.currentLang() : 'en';
-    programs.forEach(function (p) {
-      var pname = (p.name && (p.name[lang] || p.name.en)) || p.id;
-      out.push({
-        id: 'r-seed-' + p.id + '-1',
-        programId: p.id,
-        author: 'Jordan K.',
-        who: '2024 · ' + p.host.en,
-        stars: 5,
-        text: lang === 'zh'
-          ? '这个项目最让我惊喜的是授课老师对课程内容的投入, 课后也愿意留下来讨论问题。学术压力适中, 但是能学到很多真东西。'
-          : 'The instructors were incredibly invested in the material, and they stuck around after class to discuss questions. Workload was manageable but I still learned a lot.',
-        seed: true,
-      });
-      out.push({
-        id: 'r-seed-' + p.id + '-2',
-        programId: p.id,
-        author: 'Maya A.',
-        who: lang === 'zh' ? '2023 · 申请目标: STEM' : '2023 · Applying to: STEM',
-        stars: 4,
-        text: lang === 'zh'
-          ? '项目本身的餐饮确实一般, 但是住宿和同学比想象中好。建议大家选好 roommate, 住宿体验会差很多。'
-          : 'Program food was honestly mediocre, but the housing and cohort were better than expected. Choose your roommate carefully — housing made a huge difference.',
-        seed: true,
-      });
-    });
-    return out;
-  } */
+  /* Reviews always begin empty; only verified student submissions are shown. */
   function seedReviews() { return []; }
 
   function buildSeed() {
