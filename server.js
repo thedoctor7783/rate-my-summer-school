@@ -45,8 +45,7 @@ db.exec(`
     id TEXT PRIMARY KEY, program_id TEXT NOT NULL, author TEXT NOT NULL,
     who_text TEXT, stars INTEGER NOT NULL CHECK(stars BETWEEN 1 AND 5),
     body TEXT NOT NULL, respondent_id TEXT, created_at INTEGER NOT NULL,
-    is_verified INTEGER NOT NULL DEFAULT 0,
-    founding_contributor INTEGER NOT NULL DEFAULT 0
+    is_verified INTEGER NOT NULL DEFAULT 0
   );
   CREATE INDEX IF NOT EXISTS idx_reviews_program ON reviews(program_id);
   CREATE TABLE IF NOT EXISTS saved_programs (
@@ -63,7 +62,6 @@ try { db.exec('ALTER TABLE users ADD COLUMN grade TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN school TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE survey_responses ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
 try { db.exec('ALTER TABLE reviews ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
-try { db.exec('ALTER TABLE reviews ADD COLUMN founding_contributor INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
 
 const TYPES = { '.css':'text/css; charset=utf-8', '.html':'text/html; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.json':'application/json; charset=utf-8', '.svg':'image/svg+xml', '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.ico':'image/x-icon' };
 function send(res, status, body, type = 'application/json; charset=utf-8') {
@@ -111,7 +109,7 @@ function isLoopback(req) {
   return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(String(req.socket.remoteAddress || ''));
 }
 function serializeSurvey(row) { return { id: row.id, programId: row.program_id, roundKey: row.round_key, answers: JSON.parse(row.answers_json), ts: row.submitted_at, verified: !!row.is_verified }; }
-function serializeReview(row) { return { id: row.id, programId: row.program_id, author: row.author, who: row.who_text || '', stars: row.stars, text: row.body, createdAt: row.created_at, verified: !!row.is_verified, foundingContributor: !!row.founding_contributor }; }
+function serializeReview(row) { return { id: row.id, programId: row.program_id, author: row.author, who: row.who_text || '', stars: row.stars, text: row.body, createdAt: row.created_at, verified: !!row.is_verified }; }
 function savedPrograms(userId) {
   return db.prepare('SELECT program_id FROM saved_programs WHERE user_id=? ORDER BY created_at DESC').all(userId).map(row => row.program_id);
 }
@@ -265,8 +263,8 @@ async function api(req, res, url) {
     const user = sessionUser(req);
     if (!user) return send(res, 401, { error:'Sign in required' });
     if (!isText(input.programId, 1, 100) || !isText(input.text, 20, 3000) || !Number.isInteger(input.stars) || input.stars < 1 || input.stars > 5) return send(res, 400, { error:'Invalid review' });
-    const row = { id: randomUUID(), programId: input.programId.trim(), author: user.name, who: String(input.who || '').slice(0, 160), stars: input.stars, text: input.text.trim(), createdAt: Date.now(), verified: true, foundingContributor: input.foundingContributor === true };
-    db.prepare('INSERT INTO reviews (id, program_id, author, who_text, stars, body, respondent_id, created_at, is_verified, founding_contributor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(row.id, row.programId, row.author, row.who, row.stars, row.text, user.id, row.createdAt, 1, row.foundingContributor ? 1 : 0);
+    const row = { id: randomUUID(), programId: input.programId.trim(), author: user.name, who: String(input.who || '').slice(0, 160), stars: input.stars, text: input.text.trim(), createdAt: Date.now(), verified: true };
+    db.prepare('INSERT INTO reviews (id, program_id, author, who_text, stars, body, respondent_id, created_at, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(row.id, row.programId, row.author, row.who, row.stars, row.text, user.id, row.createdAt, 1);
     return send(res, 201, { review: row });
   }
   return send(res, 404, { error:'Not found' });
