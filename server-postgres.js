@@ -49,7 +49,7 @@ function verifyPassword(password, stored) { const parts = String(stored || '').s
 function cookies(req) { return Object.fromEntries(String(req.headers.cookie || '').split(';').map(x => x.trim().split('=').map(decodeURIComponent)).filter(x => x.length === 2)); }
 function sameSiteCookie() { return 'SameSite=None; Secure'; }
 function serializeSurvey(row) { return { id: row.id, programId: row.program_id, roundKey: row.round_key, answers: JSON.parse(row.answers_json), ts: Number(row.submitted_at), verified: row.is_verified === true }; }
-function serializeReview(row) { return { id: row.id, programId: row.program_id, author: row.author, who: row.who_text || '', stars: row.stars, text: row.body, createdAt: Number(row.created_at), verified: row.is_verified === true }; }
+function serializeReview(row) { return { id: row.id, programId: row.program_id, author: row.author, who: row.who_text || '', stars: row.stars, text: row.body, createdAt: Number(row.created_at), verified: row.is_verified === true, foundingContributor: row.founding_contributor === true }; }
 
 async function query(text, values = []) { return pool.query(text, values); }
 async function one(text, values = []) { return (await query(text, values)).rows[0] || null; }
@@ -188,8 +188,8 @@ async function api(req, res, url) {
     const input=await body(req), user=await sessionUser(req);
     if (!user) return send(res,401,{error:'Sign in required'});
     if (!isText(input.programId,1,100) || !isText(input.text,20,3000) || !Number.isInteger(input.stars) || input.stars < 1 || input.stars > 5) return send(res,400,{error:'Invalid review'});
-    const row={id:randomUUID(),programId:input.programId.trim(),author:user.name,who:String(input.who || '').slice(0,160),stars:input.stars,text:input.text.trim(),createdAt:Date.now(),verified:true};
-    await query('INSERT INTO reviews (id,program_id,author,who_text,stars,body,respondent_id,created_at,is_verified) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',[row.id,row.programId,row.author,row.who,row.stars,row.text,user.id,row.createdAt,true]);
+    const row={id:randomUUID(),programId:input.programId.trim(),author:user.name,who:String(input.who || '').slice(0,160),stars:input.stars,text:input.text.trim(),createdAt:Date.now(),verified:true,foundingContributor:input.foundingContributor === true};
+    await query('INSERT INTO reviews (id,program_id,author,who_text,stars,body,respondent_id,created_at,is_verified,founding_contributor) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[row.id,row.programId,row.author,row.who,row.stars,row.text,user.id,row.createdAt,true,row.foundingContributor]);
     return send(res,201,{review:row});
   }
   return send(res,404,{error:'Not found'});
@@ -201,13 +201,14 @@ async function schema() {
     CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at BIGINT NOT NULL, created_at BIGINT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id));
     CREATE TABLE IF NOT EXISTS survey_responses (id TEXT PRIMARY KEY, program_id TEXT NOT NULL, round_key TEXT NOT NULL, answers_json TEXT NOT NULL, respondent_id TEXT, submitted_at BIGINT NOT NULL, is_verified BOOLEAN NOT NULL DEFAULT false);
     CREATE INDEX IF NOT EXISTS idx_surveys_program ON survey_responses(program_id);
-    CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, program_id TEXT NOT NULL, author TEXT NOT NULL, who_text TEXT, stars INTEGER NOT NULL CHECK(stars BETWEEN 1 AND 5), body TEXT NOT NULL, respondent_id TEXT, created_at BIGINT NOT NULL, is_verified BOOLEAN NOT NULL DEFAULT false);
+    CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, program_id TEXT NOT NULL, author TEXT NOT NULL, who_text TEXT, stars INTEGER NOT NULL CHECK(stars BETWEEN 1 AND 5), body TEXT NOT NULL, respondent_id TEXT, created_at BIGINT NOT NULL, is_verified BOOLEAN NOT NULL DEFAULT false, founding_contributor BOOLEAN NOT NULL DEFAULT false);
     CREATE INDEX IF NOT EXISTS idx_reviews_program ON reviews(program_id);
     CREATE TABLE IF NOT EXISTS saved_programs (user_id TEXT NOT NULL, program_id TEXT NOT NULL, created_at BIGINT NOT NULL, PRIMARY KEY (user_id,program_id), FOREIGN KEY(user_id) REFERENCES users(id));
     CREATE TABLE IF NOT EXISTS matchmaker_profiles (user_id TEXT PRIMARY KEY, profile_json TEXT NOT NULL, updated_at BIGINT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id));
   `);
   await query('ALTER TABLE survey_responses ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false');
   await query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false');
+  await query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS founding_contributor BOOLEAN NOT NULL DEFAULT false');
 }
 
 schema().then(() => http.createServer(async (req,res) => {

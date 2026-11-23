@@ -126,8 +126,42 @@ function renderFooter() {
         </div>
         <a class="site-footer__suggestion-button" href="https://docs.google.com/forms/d/e/1FAIpQLSdf6na2ZIfBQTVmkpxmr6-ktLIpskJ--ZwRey2U097-99gR-w/viewform?usp=publish-editor" target="_blank" rel="noopener noreferrer">${esc(lang === 'zh' ? '告诉我们' : 'Share a suggestion')}</a>
       </div>
+      <a class="site-footer__contributors" href="#/contributors">${esc(lang === 'zh' ? '早期贡献者' : 'Early contributors')}</a>
     </footer>
   `;
+}
+
+function renderContributors() {
+  const lang = L();
+  const copy = lang === 'zh' ? {
+    eyebrow: 'FOUNDING CONTRIBUTORS · 早期贡献者', title: '由愿意真诚分享的学生共同建立。', lede: '每一份评价，都让下一位学生更容易找到适合自己的项目。这个页面感谢最早选择分享经验、帮助我们建立这份资源的人。', calloutTitle: '成为前 100 位贡献者之一。', calloutText: '提交评价后，你可以决定是否以昵称和所评项目出现在这里。', cta: '写一份评价', wall: '早期贡献者名单', note: '仅展示明确同意的人。', emptyTitle: '这里会从第一位早期贡献者开始。', emptyText: '提交一份真实评价后，你可以选择加入感谢名单。', privacyTitle: '隐私优先。', privacyText: '贡献者自行决定是否加入。我们只会展示昵称（或“匿名贡献者”）和所评项目；绝不会展示手机号、邮箱或完整评价内容。', reviewed: '评价了', anonymous: '匿名贡献者'
+  } : {
+    eyebrow: 'FOUNDING CONTRIBUTORS · EARLY CONTRIBUTORS', title: 'Built with students who shared honestly.', lede: 'Every review makes it easier for the next student to find a program that fits. This page thanks the people who chose to help build that resource from the beginning.', calloutTitle: 'Be part of the first 100.', calloutText: 'Submit a review, then choose whether to appear here with your display name and program.', cta: 'Write a review', wall: 'The early contributors', note: 'Shown only with each contributor’s permission.', emptyTitle: 'The wall begins with its first contributor.', emptyText: 'After submitting a real review, you can choose to join this thank-you list.', privacyTitle: 'Privacy first.', privacyText: 'Contributors choose whether to appear. We show only a display name (or “Anonymous contributor”) and the program reviewed—never a phone number, email, or full review response.', reviewed: 'Reviewed', anonymous: 'Anonymous contributor'
+  };
+  const contributors = (window.SSDB?.getAllReviews?.() || []).filter(review => review.foundingContributor === true);
+  const initials = name => String(name || copy.anonymous).trim().split(/\s+/).filter(Boolean).slice(0, 2).map(part => part.slice(0, 1)).join('').toUpperCase() || 'R';
+  const card = review => {
+    const program = programById(review.programId);
+    const author = String(review.author || '').trim() || copy.anonymous;
+    return `<article class="contributors-page__person"><span class="contributors-page__avatar" aria-hidden="true">${esc(initials(author))}</span><h2>${esc(author)}</h2><p>${esc(copy.reviewed)}<br><strong>${esc(rvProgramName(program))}</strong></p></article>`;
+  };
+  const wall = contributors.length
+    ? `<div class="contributors-page__wall">${contributors.map(card).join('')}</div>`
+    : `<div class="contributors-page__empty"><span aria-hidden="true">✦</span><h2>${esc(copy.emptyTitle)}</h2><p>${esc(copy.emptyText)}</p></div>`;
+  $('#app').innerHTML = `${renderHeader('contributors')}
+    <main class="contributors-page">
+      <section class="contributors-page__hero">
+        <div><p class="contributors-page__eyebrow">${esc(copy.eyebrow)}</p><h1>${esc(copy.title)}</h1><p class="contributors-page__lede">${esc(copy.lede)}</p></div>
+        <aside class="contributors-page__callout"><h2>${esc(copy.calloutTitle)}</h2><p>${esc(copy.calloutText)}</p><a href="#/survey" class="contributors-page__button">${esc(copy.cta)}</a></aside>
+      </section>
+      <section class="contributors-page__list" aria-labelledby="contributors-wall-title">
+        <div class="contributors-page__list-head"><h2 id="contributors-wall-title">${esc(copy.wall)}</h2><p>${esc(copy.note)}</p></div>
+        ${wall}
+        <p class="contributors-page__privacy"><span aria-hidden="true">✓</span><span><strong>${esc(copy.privacyTitle)}</strong> ${esc(copy.privacyText)}</span></p>
+      </section>
+    </main>${renderFooter()}`;
+  bindHeaderEvents();
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 function bindHeaderEvents() {
@@ -1213,6 +1247,7 @@ function rvDraft(programId) {
       context: { attendedYear:'', trackCourse:'', format:'' },
       general: { overall:'', value:'', vibes:[], reflectionPrompt:'', reflectionText:'' },
       optional: { academics:{}, studentLife:{}, campusLife:{}, outcomes:{} },
+      foundingContributor: false,
       awaitingAuth: false,
     };
     save();
@@ -1397,12 +1432,14 @@ function rvReviewView(draft, program) {
     <p class="review-v2__eyebrow">${esc(rvText('READY TO SAVE', '准备保存'))}</p><h1>${esc(rvText('Your review, at a glance', '你的评价，一览'))}</h1>
     <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('You can still go back and edit anything before saving.', '保存前，你仍可以返回修改任何内容。'))}</p>
     <div class="review-v2__summary"><div><span>${esc(rvText('Program', '项目'))}</span><strong>${esc(rvProgramName(program))}</strong></div><div><span>${esc(rvText('General review', '总体评价'))}</span><strong>${esc(rvGeneralReady(draft) ? rvText('Completed', '已完成') : rvText('Needs a little more', '还差一点'))}</strong></div><div><span>${esc(rvText('Optional topics', '可选专题'))}</span><strong>${esc(selected.length ? selected.map(c => c.title).join(' · ') : rvText('Skipped for now', '暂时跳过'))}</strong></div></div>
+    <label class="review-v2__contributor-optin"><input type="checkbox" data-rv-contributor-optin ${draft.foundingContributor ? 'checked' : ''}><span><strong>${esc(rvText('Join our Early Contributors wall', '加入早期贡献者感谢名单'))}</strong><small>${esc(rvText('With your permission, we’ll show your display name and the program you reviewed. Your contact details and review text stay private.', '经你同意后，我们会展示你的昵称与所评项目。联系方式和完整评价内容始终保持私密。'))}</small></span></label>
     <div class="review-v2__save-note"><strong>${esc(rvText('Save My Review', '保存我的评价'))}</strong><p>${esc(rvText('Sign in or create an account to save your answers and publish your review.', '登录或创建账户，以保存你的回答并发布评价。'))}</p></div>
     <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="topics">${esc(rvText('Back to topics', '返回专题'))}</button><button class="review-v2__primary" data-rv-save>${esc(rvText('Save My Review', '保存我的评价'))}</button></div>${rvDraftNote()}
   </section>`;
 }
 function rvThanksView(program) {
-  return `<section class="review-v2__shell review-v2__thanks"><p class="review-v2__eyebrow">${esc(rvText('REVIEW SAVED', '评价已保存'))}</p><h1>${esc(rvText('Your review has been saved. Thank you for sharing your summer experience.', '你的评价已保存。感谢你分享自己的暑期经历。'))}</h1><p class="review-v2__lede">${esc(rvText('Your perspective can help the next student make a more informed choice.', '你的视角可以帮助下一位学生做出更明智的选择。'))}</p><a class="review-v2__primary" href="#/program/${esc(program.id)}">${esc(rvText('Back to program', '返回项目'))}</a></section>`;
+  const joined = State.reviewDraft?.foundingContributor === true;
+  return `<section class="review-v2__shell review-v2__thanks"><p class="review-v2__eyebrow">${esc(rvText('REVIEW SAVED', '评价已保存'))}</p><h1>${esc(rvText('Your review has been saved. Thank you for sharing your summer experience.', '你的评价已保存。感谢你分享自己的暑期经历。'))}</h1><p class="review-v2__lede">${esc(rvText('Your perspective can help the next student make a more informed choice.', '你的视角可以帮助下一位学生做出更明智的选择。'))}</p>${joined ? `<p class="review-v2__contributor-thanks">${esc(rvText('You also chose to join the Early Contributors wall. Thank you for helping build this resource.', '你还选择加入早期贡献者感谢名单。感谢你帮助我们建立这份资源。'))}</p><a class="review-v2__back review-v2__back--center" href="#/contributors">${esc(rvText('View the thank-you page', '查看感谢名单'))}</a>` : ''}<a class="review-v2__primary" href="#/program/${esc(program.id)}">${esc(rvText('Back to program', '返回项目'))}</a></section>`;
 }
 function bindReviewV2() {
   const draft = State.reviewDraft;
@@ -1417,6 +1454,7 @@ function bindReviewV2() {
   $$('[data-rv-star]').forEach(button => button.addEventListener('click', () => { const bucket = draft.optional[button.dataset.rvArea]; bucket[button.dataset.rvKey] = Number(button.dataset.value); rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
   $$('[data-rv-grid]').forEach(button => button.addEventListener('click', () => { const bucket = draft.optional[button.dataset.rvArea]; const values = bucket[button.dataset.rvKey] || {}; values[button.dataset.sub] = button.dataset.value === 'NA' ? 'NA' : Number(button.dataset.value); bucket[button.dataset.rvKey] = values; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
   $$('[data-rv-text]').forEach(textarea => textarea.addEventListener('input', () => { draft.optional[textarea.dataset.rvArea][textarea.dataset.rvKey] = textarea.value; rvPersist(); }));
+  $$('[data-rv-contributor-optin]').forEach(input => input.addEventListener('change', () => { draft.foundingContributor = input.checked; rvPersist(); }));
   $$('[data-rv-prompt]').forEach(button => button.addEventListener('click', () => { draft.optional[button.dataset.rvArea][button.dataset.rvKey] = button.dataset.value; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
   $$('[data-rv-topic]').forEach(button => button.addEventListener('click', () => { draft.activeCategory = button.dataset.rvTopic; draft.screen = 'category'; rvPersist(); renderSurvey(draft.programId); }));
   $$('[data-rv-go]').forEach(button => button.addEventListener('click', () => { draft.screen = button.dataset.rvGo; rvPersist(); renderSurvey(draft.programId); }));
@@ -1448,7 +1486,7 @@ function rvSaveReview() {
   const who = [context.attendedYear, context.format].filter(Boolean).join(' · ');
   try {
     window.SSDB.recordRound(draft.programId, 'conversational-v2', { context, general:draft.general, optional:draft.optional, version:2 });
-    window.SSDB.addReview({ programId:draft.programId, author:window.SSDB.currentUser().name || rvText('Student', '学生'), who, stars:scoreMap[draft.general.overall] || 3, text:draft.general.reflectionText });
+    window.SSDB.addReview({ programId:draft.programId, author:window.SSDB.currentUser().name || rvText('Student', '学生'), who, stars:scoreMap[draft.general.overall] || 3, text:draft.general.reflectionText, foundingContributor: draft.foundingContributor === true });
   } catch (err) {
     rvShowError(rvText('We could not save your review just yet. Your draft is still safe on this device.', '暂时无法保存评价。草稿仍安全地保存在此设备上。'));
     return;
@@ -1603,6 +1641,10 @@ function renderLanding() {
           <span class="landing-mission-artwork__spark landing-mission-artwork__spark--right" aria-hidden="true">✦</span>
           <h2 id="landingMissionTitle">${esc(t('landingMissionTitle', lang))}</h2>
           <p class="landing-mission-artwork__intro">${esc(t('landingMissionIntro', lang))}</p>
+          <a class="landing-contributor-seal" href="#/contributors">
+            <span class="landing-contributor-seal__medal" aria-hidden="true"><svg viewBox="0 0 64 64"><use href="#landing-spark"></use></svg></span>
+            <span class="landing-contributor-seal__copy"><small>${esc(lang === 'zh' ? '一份特别的感谢' : 'A NOTE OF THANKS')}</small><strong>${esc(lang === 'zh' ? '感谢早期点评贡献者' : 'Thank you to our early review contributors')}</strong></span>
+          </a>
           <div class="landing-mission-artwork__cards">
             ${['landingMissionCost', 'landingMissionMarketing', 'landingMissionForums'].map((key, index) => `
               <article class="landing-mission-artwork__card">
@@ -5199,6 +5241,7 @@ function parseHash() {
   if (parts[0] === 'login')    return { name:'login' };
   if (parts[0] === 'register') return { name:'register' };
   if (parts[0] === 'account')  return { name:'account' };
+  if (parts[0] === 'contributors') return { name:'contributors' };
   return { name:'home' };
 }
 
@@ -5222,6 +5265,7 @@ function render() {
   if (r.name === 'login')      return renderLogin();
   if (r.name === 'register')   return renderRegister();
   if (r.name === 'account')    return renderAccount();
+  if (r.name === 'contributors') return renderContributors();
 }
 
 const PROGRAM_DETAIL_ROUTES = new Set([
