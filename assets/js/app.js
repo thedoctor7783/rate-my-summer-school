@@ -2596,6 +2596,74 @@ function yygsEmptyStoryPanel(title, prompts, programId, lang) {
   </section>`;
 }
 
+const YYGS_TOPIC_CATEGORY_BY_TAB = {
+  academics: 'academics',
+  students: 'studentLife',
+  campus: 'campusLife',
+  outcomes: 'outcomes'
+};
+
+function yygsPublishedTopicResponses(programId, categoryId) {
+  const category = rvCategory(categoryId);
+  if (!category || !window.SSDB?.getSurveyResponses) return [];
+  return window.SSDB.getSurveyResponses(programId).filter(response => {
+    if (!response || response.roundKey !== 'conversational-v2' || response.verified !== true) return false;
+    if (response.sample || response.demo || response.seed || /^(?:sample-|r-seed-)/.test(String(response.id || ''))) return false;
+    const draft = { optional: response.answers?.optional || {} };
+    return rvCompletedCategory(category, draft);
+  });
+}
+
+function yygsTopicFieldLabel(field, zh) {
+  const chinese = {
+    academic_rating: '学术体验评分', workload: '学习负荷', instructors: '教师评分', academic_memory: '难忘的学术时刻',
+    life_rating: '学生生活评分', activities: '课外活动', making_friends: '交朋友与融入', life_memory: '学生生活故事',
+    campus_ratings: '校园生活评分', safety: '安全感', getting_around: '出行便利度', nearby: '周边环境', campus_memory: '校园生活故事',
+    takeaway: '项目收获'
+  };
+  return zh ? (chinese[field.key] || field.label) : field.label;
+}
+
+function yygsTopicAnswerHTML(field, answers) {
+  const value = answers[field.key];
+  if (field.type === 'stars') return `<strong class="yygs-topic-answer__score">${esc(value)} <small>/ 5</small></strong>`;
+  if (field.type === 'grid') {
+    return `<div class="yygs-topic-answer__grid">${field.items.map(item => {
+      const score = value?.[item];
+      return `<span><b>${esc(item)}</b><em>${esc(score === 'NA' ? 'N/A' : `${score} / 5`)}</em></span>`;
+    }).join('')}</div>`;
+  }
+  if (field.type === 'multi') {
+    return `<div class="yygs-topic-answer__chips">${(Array.isArray(value) ? value : []).map(item => `<i>${esc(item)}</i>`).join('')}</div>`;
+  }
+  if (field.type === 'prompt') {
+    return `<blockquote class="yygs-topic-answer__quote">${esc(answers[field.key + '_text'])}</blockquote>`;
+  }
+  if (field.type === 'open') return `<blockquote class="yygs-topic-answer__quote">${esc(value)}</blockquote>`;
+  return `<p class="yygs-topic-answer__text">${esc(value)}</p>`;
+}
+
+function yygsTopicResponsesPanel(category, responses, lang) {
+  const zh = lang === 'zh';
+  const responseCount = responses.length;
+  const countCopy = zh
+    ? `${responseCount} 位已验证学生的回答`
+    : `${responseCount} verified student ${responseCount === 1 ? 'response' : 'responses'}`;
+  return `<section class="yygs-panel yygs-topic-responses">
+    <div class="yygs-panel__head"><h2>${esc(zh ? `${category.title} 回答` : `${category.title} responses`)}</h2><span>${esc(countCopy)}</span></div>
+    <div class="yygs-topic-responses__list">
+      ${responses.map((response, index) => {
+        const answers = response.answers.optional[category.id] || {};
+        const fields = category.fields.filter(field => rvFieldAnswered(field, answers));
+        return `<article class="yygs-topic-response">
+          <p class="yygs-topic-response__eyebrow">${esc(zh ? `已验证学生回答 ${index + 1}` : `Verified student response ${index + 1}`)}</p>
+          <dl>${fields.map(field => `<div><dt>${esc(yygsTopicFieldLabel(field, zh))}</dt><dd>${yygsTopicAnswerHTML(field, answers)}</dd></div>`).join('')}</dl>
+        </article>`;
+      }).join('')}
+    </div>
+  </section>`;
+}
+
 function yygsGenericPage(active, lang, programId) {
   const zh = lang === 'zh';
   const program = programById(programId);
@@ -2644,6 +2712,18 @@ function yygsGenericPage(active, lang, programId) {
         <div><h2>${esc(zh ? `参加过 ${programName} 吗？` : `Have experience with ${programName}?`)}</h2><p>${esc(zh ? '你的真实经历可以帮助下一位学生做决定。' : 'Your experience can help the next student decide.')}</p></div>
         <div><a class="yygs-overview-cta__review" href="#/survey/${esc(programId)}">${esc(zh ? '写评价' : 'Write a review')}</a><a class="yygs-overview-cta__back" href="#/pick">← ${esc(zh ? '返回搜索项目' : 'Back to programs')}</a></div>
       </section>
+    </div>`;
+  }
+  const categoryId = YYGS_TOPIC_CATEGORY_BY_TAB[active];
+  const category = rvCategory(categoryId);
+  const topicResponses = category ? yygsPublishedTopicResponses(programId, categoryId) : [];
+  if (category && topicResponses.length) {
+    const countCopy = zh
+      ? `基于 ${topicResponses.length} 位已验证学生的回答`
+      : `Based on ${topicResponses.length} verified student ${topicResponses.length === 1 ? 'response' : 'responses'}`;
+    return `<div class="yygs-page-body yygs-page-body--generic yygs-page-body--responses">
+      <div class="yygs-section-head"><h2>${esc(labels[active])}</h2><span>${esc(countCopy)}</span></div>
+      ${yygsTopicResponsesPanel(category, topicResponses, lang)}
     </div>`;
   }
   return `<div class="yygs-page-body yygs-page-body--generic">

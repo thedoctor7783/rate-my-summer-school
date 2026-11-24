@@ -4605,8 +4605,38 @@ button { font: inherit; cursor: pointer; }
 .program-review-stories__meta { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px 20px; }
 .program-review-stories__meta span { color:#5f6763; font-size:.92rem; }
 .program-review-stories blockquote { margin:10px 0; padding-left:18px; border-left:3px solid var(--green); white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.65; }
+
+/* Verified answers from the four detailed review sections. These are kept
+   factual and scan-friendly: the contributor's selected response remains
+   attached to its original survey prompt rather than being rewritten. */
+.yygs-page-body--responses { gap:18px; }
+.yygs-topic-responses { padding:0; overflow:hidden; }
+.yygs-topic-responses > .yygs-panel__head { padding:22px 26px 18px; border-bottom:1px solid #d6dcd8; }
+.yygs-topic-responses > .yygs-panel__head h2 { margin:0; }
+.yygs-topic-responses__list { display:grid; }
+.yygs-topic-response { padding:22px 26px 26px; }
+.yygs-topic-response + .yygs-topic-response { border-top:1px solid #d6dcd8; }
+.yygs-topic-response__eyebrow { margin:0 0 16px; color:#3f6654; font-size:.78rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.yygs-topic-response dl { display:grid; gap:0; margin:0; }
+.yygs-topic-response dl > div { display:grid; grid-template-columns:minmax(180px,.76fr) minmax(0,1.7fr); gap:24px; padding:16px 0; border-top:1px solid #e1e6e1; }
+.yygs-topic-response dt { color:#244638; font-weight:750; line-height:1.42; }
+.yygs-topic-response dd { min-width:0; margin:0; color:#15261f; line-height:1.5; }
+.yygs-topic-answer__score { display:inline-block; color:#06713e; font-family:var(--serif); font-size:1.85rem; line-height:1; }
+.yygs-topic-answer__score small { color:#3a5c4d; font-size:1rem; }
+.yygs-topic-answer__text { margin:0; }
+.yygs-topic-answer__grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; }
+.yygs-topic-answer__grid span { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 11px; border-radius:9px; background:#f0f4ed; font-size:.9rem; }
+.yygs-topic-answer__grid b { font-weight:650; }
+.yygs-topic-answer__grid em { flex:0 0 auto; color:#057040; font-style:normal; font-weight:800; white-space:nowrap; }
+.yygs-topic-answer__chips { display:flex; flex-wrap:wrap; gap:8px; }
+.yygs-topic-answer__chips i { padding:7px 11px; border-radius:999px; background:#e8efe0; color:#1e4233; font-size:.88rem; font-style:normal; }
+.yygs-topic-answer__quote { margin:0; padding:2px 0 2px 16px; border-left:3px solid #0b7a48; color:#273a31; font-family:var(--serif); font-size:1.05rem; font-style:italic; line-height:1.62; white-space:pre-wrap; overflow-wrap:anywhere; }
 @media (max-width:680px) {
   .program-review-summary { align-items:flex-start; }
   .program-review-summary button { width:100%; }
   .program-review-stories { padding:22px 18px; }
+  .yygs-topic-responses > .yygs-panel__head,
+  .yygs-topic-response { padding-left:18px; padding-right:18px; }
+  .yygs-topic-response dl > div { grid-template-columns:1fr; gap:8px; }
+  .yygs-topic-answer__grid { grid-template-columns:1fr; }
 }
