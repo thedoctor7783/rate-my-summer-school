@@ -2609,8 +2609,8 @@ function yygsPublishedTopicResponses(programId, categoryId) {
   return window.SSDB.getSurveyResponses(programId).filter(response => {
     if (!response || response.roundKey !== 'conversational-v2' || response.verified !== true) return false;
     if (response.sample || response.demo || response.seed || /^(?:sample-|r-seed-)/.test(String(response.id || ''))) return false;
-    const draft = { optional: response.answers?.optional || {} };
-    return rvCompletedCategory(category, draft);
+    const answers = response.answers?.optional?.[category.id] || {};
+    return category.fields.some(field => rvFieldAnswered(field, answers));
   });
 }
 
