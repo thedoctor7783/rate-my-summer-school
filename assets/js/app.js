@@ -1209,7 +1209,7 @@ const REVIEW_V2 = {
         { key:'academic_rating', type:'stars', label:'Overall, how would you rate the academic experience?', helper:'Very dissatisfied → Very satisfied' },
         { key:'workload', type:'select', label:'How heavy was the workload?', options:['Very heavy, took up most of my free time', 'Somewhat heavy, but manageable', 'Moderate', 'Fairly light', 'Very light'] },
         { key:'instructors', type:'grid', label:'How would you rate your instructors?', na:true, items:['Teaching clarity', 'Engagement and enthusiasm', 'Encouragement of class discussion', 'Approachability and helpfulness outside class'] },
-        { key:'academic_memory', type:'open', optional:true, label:"What’s one class, professor, or academic moment that left an impression on you?", placeholder:'A few sentences are enough…' }
+        { key:'academic_memory', type:'open', label:"What’s one class, professor, or academic moment that left an impression on you?", placeholder:'A few sentences are enough…' }
       ]
     },
     {
@@ -1218,7 +1218,7 @@ const REVIEW_V2 = {
         { key:'life_rating', type:'stars', label:'Overall, how would you rate student life?', helper:'Very dissatisfied → Very satisfied' },
         { key:'activities', type:'multi', label:'What was available outside class?', options:['Weekend trips or excursions', 'Daytime activities such as snacks or crafts', 'Evening events such as movie nights, games, or dances', 'Clubs or interest groups', 'Sports or outdoor recreation', 'Showcases or talent nights', 'Honestly not much', 'We made our own fun'], exclusive:'We made our own fun' },
         { key:'making_friends', type:'select', label:'How easy was it to make friends?', options:['Very easy', 'Somewhat easy', 'Mixed experience', 'Somewhat difficult', 'Very difficult'] },
-        { key:'life_memory', type:'prompt', optional:true, label:'Pick one memory prompt, if you’d like to share more.', prompts:['What did a typical afternoon or weekend look like?', 'What do you wish the program had done differently?', 'What’s one special memory about people you met?'] }
+        { key:'life_memory', type:'prompt', label:'Pick one memory prompt and share your experience.', prompts:['What did a typical afternoon or weekend look like?', 'What do you wish the program had done differently?', 'What’s one special memory about people you met?'] }
       ]
     },
     {
@@ -1228,7 +1228,7 @@ const REVIEW_V2 = {
         { key:'safety', type:'stars', label:'How safe did you feel?', helper:'Very unsafe → Very safe' },
         { key:'getting_around', type:'stars', label:'How convenient was it to get around?', helper:'Very inconvenient → Very convenient' },
         { key:'nearby', type:'multi', label:'What was nearby?', options:['Good food', 'Grocery shopping', 'Public transportation', 'Shopping', 'Entertainment', 'Natural spaces', 'Healthcare and pharmacies', 'Cultural and historical landmarks'] },
-        { key:'campus_memory', type:'open', optional:true, label:'What was your favorite campus spot or place outside campus?', placeholder:'Tell us about it…' }
+        { key:'campus_memory', type:'open', label:'What was your favorite campus spot or place outside campus?', placeholder:'Tell us about it…' }
       ]
     },
     {
