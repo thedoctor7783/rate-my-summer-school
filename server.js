@@ -255,7 +255,7 @@ async function api(req, res, url) {
     const input = await body(req);
     const user = sessionUser(req);
     if (!user) return send(res, 401, { error:'Sign in required' });
-    if (!isText(input.programId, 1, 100) || !/^r[1-4]$/.test(input.roundKey || '') || !input.answers || typeof input.answers !== 'object' || Array.isArray(input.answers)) return send(res, 400, { error:'Invalid survey response' });
+    if (!isText(input.programId, 1, 100) || !/^(?:r[1-4]|conversational-v2)$/.test(input.roundKey || '') || !input.answers || typeof input.answers !== 'object' || Array.isArray(input.answers)) return send(res, 400, { error:'Invalid survey response' });
     const row = { id: randomUUID(), programId: input.programId.trim(), roundKey: input.roundKey, answers: input.answers, ts: Date.now(), verified: true };
     db.prepare('INSERT INTO survey_responses (id, program_id, round_key, answers_json, respondent_id, submitted_at, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?)').run(row.id, row.programId, row.roundKey, JSON.stringify(row.answers), user.id, row.ts, 1);
     return send(res, 201, { survey: row });

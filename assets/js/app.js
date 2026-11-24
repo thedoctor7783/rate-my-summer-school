@@ -41,6 +41,7 @@ const programById = (id) => PROGRAMS.find(p => p.id === id) || PROGRAMS[0];
 
 /* ============================ STATE ================================== */
 const STORAGE_KEY = 'ss.state.v1';
+let reviewLoadState = location.protocol === 'file:' ? 'local' : 'loading';
 const State = {
   lang: currentLang(),
   route: { name: 'home', params: {} },
@@ -134,20 +135,21 @@ function renderFooter() {
 function renderContributors() {
   const lang = L();
   const copy = lang === 'zh' ? {
-    eyebrow: 'FOUNDING CONTRIBUTORS · 早期贡献者', title: '由愿意真诚分享的学生共同建立。', lede: '每一份评价，都让下一位学生更容易找到适合自己的项目。这个页面感谢最早选择分享经验、帮助我们建立这份资源的人。', calloutTitle: '成为前 100 位贡献者之一。', calloutText: '提交评价后，你可以决定是否以昵称和所评项目出现在这里。', cta: '写一份评价', wall: '早期贡献者名单', note: '仅展示明确同意的人。', emptyTitle: '这里会从第一位早期贡献者开始。', emptyText: '提交一份真实评价后，你可以选择加入感谢名单。', privacyTitle: '隐私优先。', privacyText: '贡献者自行决定是否加入。我们只会展示昵称（或“匿名贡献者”）和所评项目；绝不会展示手机号、邮箱或完整评价内容。', reviewed: '评价了', anonymous: '匿名贡献者'
+    eyebrow: 'FOUNDING CONTRIBUTORS · 早期贡献者', title: '由愿意真诚分享的学生共同建立。', lede: '每一份评价，都让下一位学生更容易找到适合自己的项目。这个页面感谢最早选择分享经验、帮助我们建立这份资源的人。', calloutTitle: '成为前 100 位贡献者之一。', calloutText: '提交评价后，你可以决定是否以昵称和所评项目出现在这里。', cta: '写一份评价', wall: '早期贡献者名单', note: '仅展示明确同意的人。', emptyTitle: '这里会从第一位早期贡献者开始。', emptyText: '提交一份真实评价后，你可以选择加入感谢名单。', privacyTitle: '隐私优先。', privacyText: '贡献者自行决定是否加入感谢名单。项目页面会公开已发布的评价，手机号、邮箱和账户信息不会公开。', reviewed: '评价了', anonymous: '匿名贡献者'
   } : {
-    eyebrow: 'FOUNDING CONTRIBUTORS · EARLY CONTRIBUTORS', title: 'Built with students who shared honestly.', lede: 'Every review makes it easier for the next student to find a program that fits. This page thanks the people who chose to help build that resource from the beginning.', calloutTitle: 'Be part of the first 100.', calloutText: 'Submit a review, then choose whether to appear here with your display name and program.', cta: 'Write a review', wall: 'The early contributors', note: 'Shown only with each contributor’s permission.', emptyTitle: 'The wall begins with its first contributor.', emptyText: 'After submitting a real review, you can choose to join this thank-you list.', privacyTitle: 'Privacy first.', privacyText: 'Contributors choose whether to appear. We show only a display name (or “Anonymous contributor”) and the program reviewed—never a phone number, email, or full review response.', reviewed: 'Reviewed', anonymous: 'Anonymous contributor'
+    eyebrow: 'FOUNDING CONTRIBUTORS · EARLY CONTRIBUTORS', title: 'Built with students who shared honestly.', lede: 'Every review makes it easier for the next student to find a program that fits. This page thanks the people who chose to help build that resource from the beginning.', calloutTitle: 'Be part of the first 100.', calloutText: 'Submit a review, then choose whether to appear here with your display name and program.', cta: 'Write a review', wall: 'The early contributors', note: 'Shown only with each contributor’s permission.', emptyTitle: 'The wall begins with its first contributor.', emptyText: 'After submitting a real review, you can choose to join this thank-you list.', privacyTitle: 'Privacy first.', privacyText: 'Contributors choose whether to join this wall. Published reviews appear on program pages. Phone numbers, email addresses, and account details stay private.', reviewed: 'Reviewed', anonymous: 'Anonymous contributor'
   };
   const contributors = (window.SSDB?.getAllReviews?.() || []).filter(review => review.foundingContributor === true);
   const initials = name => String(name || copy.anonymous).trim().split(/\s+/).filter(Boolean).slice(0, 2).map(part => part.slice(0, 1)).join('').toUpperCase() || 'R';
   const card = review => {
     const program = programById(review.programId);
     const author = String(review.author || '').trim() || copy.anonymous;
-    return `<article class="contributors-page__person"><span class="contributors-page__avatar" aria-hidden="true">${esc(initials(author))}</span><h2>${esc(author)}</h2><p>${esc(copy.reviewed)}<br><strong>${esc(rvProgramName(program))}</strong></p></article>`;
+    return `<article class="contributors-page__person"><span class="contributors-page__avatar" aria-hidden="true">${esc(initials(author))}</span><h2>${esc(author)}</h2><p>${esc(copy.reviewed)}<br><strong><a href="#/program/${esc(review.programId)}">${esc(rvProgramName(program))}</a></strong></p></article>`;
   };
+  const pendingReviews = reviewLoadMessage(lang === 'zh');
   const wall = contributors.length
     ? `<div class="contributors-page__wall">${contributors.map(card).join('')}</div>`
-    : `<div class="contributors-page__empty"><span aria-hidden="true">✦</span><h2>${esc(copy.emptyTitle)}</h2><p>${esc(copy.emptyText)}</p></div>`;
+    : pendingReviews ? `<p role="status">${esc(pendingReviews)}</p>` : `<div class="contributors-page__empty"><span aria-hidden="true">✦</span><h2>${esc(copy.emptyTitle)}</h2><p>${esc(copy.emptyText)}</p></div>`;
   $('#app').innerHTML = `${renderHeader('contributors')}
     <main class="contributors-page">
       <section class="contributors-page__hero">
@@ -1432,8 +1434,8 @@ function rvReviewView(draft, program) {
     <p class="review-v2__eyebrow">${esc(rvText('READY TO SAVE', '准备保存'))}</p><h1>${esc(rvText('Your review, at a glance', '你的评价，一览'))}</h1>
     <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('You can still go back and edit anything before saving.', '保存前，你仍可以返回修改任何内容。'))}</p>
     <div class="review-v2__summary"><div><span>${esc(rvText('Program', '项目'))}</span><strong>${esc(rvProgramName(program))}</strong></div><div><span>${esc(rvText('General review', '总体评价'))}</span><strong>${esc(rvGeneralReady(draft) ? rvText('Completed', '已完成') : rvText('Needs a little more', '还差一点'))}</strong></div><div><span>${esc(rvText('Optional topics', '可选专题'))}</span><strong>${esc(selected.length ? selected.map(c => c.title).join(' · ') : rvText('Skipped for now', '暂时跳过'))}</strong></div></div>
-    <label class="review-v2__contributor-optin"><input type="checkbox" data-rv-contributor-optin ${draft.foundingContributor ? 'checked' : ''}><span><strong>${esc(rvText('Join our Early Contributors wall', '加入早期贡献者感谢名单'))}</strong><small>${esc(rvText('With your permission, we’ll show your display name and the program you reviewed. Your contact details and review text stay private.', '经你同意后，我们会展示你的昵称与所评项目。联系方式和完整评价内容始终保持私密。'))}</small></span></label>
-    <div class="review-v2__save-note"><strong>${esc(rvText('Save My Review', '保存我的评价'))}</strong><p>${esc(rvText('Sign in or create an account to save your answers and publish your review.', '登录或创建账户，以保存你的回答并发布评价。'))}</p></div>
+    <label class="review-v2__contributor-optin"><input type="checkbox" data-rv-contributor-optin ${draft.foundingContributor ? 'checked' : ''}><span><strong>${esc(rvText('Join our Early Contributors wall', '加入早期贡献者感谢名单'))}</strong><small>${esc(rvText('The wall will show your display name and program. Your contact details stay private.', '感谢名单将展示你的昵称和所评项目。你的联系方式不会公开。'))}</small></span></label>
+    <div class="review-v2__save-note"><strong>${esc(rvText('Save My Review', '保存我的评价'))}</strong><p>${esc(rvText('When you save, your rating and written reflection will appear on the program page.', '保存后，你的评分和书面评价将显示在项目页面上。'))}</p></div>
     <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="topics">${esc(rvText('Back to topics', '返回专题'))}</button><button class="review-v2__primary" data-rv-save>${esc(rvText('Save My Review', '保存我的评价'))}</button></div>${rvDraftNote()}
   </section>`;
 }
@@ -2530,6 +2532,37 @@ function yygsOutcomesHTML(lang) {
   </div>`;
 }
 
+function reviewLoadMessage(zh) {
+  if (reviewLoadState === 'loading') return zh ? '正在加载学生评价…' : 'Loading student reviews…';
+  if (reviewLoadState === 'error') return zh ? '暂时无法加载学生评价。请刷新重试。' : 'Student reviews could not be loaded. Refresh to try again.';
+  return '';
+}
+
+function programReviewSummary(reviews, zh) {
+  const scores = reviews.map(review => Number(review.stars)).filter(score => Number.isInteger(score) && score >= 1 && score <= 5);
+  const mean = scores.length ? (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1) : '—';
+  const count = zh ? `基于 ${reviews.length} 份已验证评价` : `${reviews.length} verified student ${reviews.length === 1 ? 'review' : 'reviews'}`;
+  return `<section class="yygs-panel yygs-glance">
+    <div class="yygs-panel__head"><h2>${esc(zh ? '学生体验概览' : 'Student Experience at a Glance')}</h2><span>${esc(count)}</span></div>
+    <div class="program-review-summary">
+      <div><strong>${mean} <small>/ 5</small></strong><span>${esc(zh ? '整体体验' : 'Overall experience')}</span></div>
+      <button type="button" class="yygs-overview-cta__back" data-read-stories>${esc(zh ? '阅读学生评价' : (reviews.length === 1 ? 'Read the student review' : 'Read student reviews'))}</button>
+    </div>
+  </section>`;
+}
+
+function programReviewStories(reviews, zh) {
+  return `<section class="yygs-panel program-review-stories" id="program-stories" aria-labelledby="program-stories-title">
+    <h2 id="program-stories-title" tabindex="-1">${esc(zh ? '学生故事' : 'Student Stories')}</h2>
+    ${reviews.map(review => {
+      const score = Number(review.stars);
+      const author = String(review.author || '').trim() || (zh ? '匿名学生' : 'Anonymous student');
+      const details = [review.who, Number.isInteger(score) ? `${score} / 5` : ''].filter(Boolean).join(' · ');
+      return `<article><div class="program-review-stories__meta"><strong>${esc(author)}</strong>${details ? `<span>${esc(details)}</span>` : ''}</div><blockquote>${esc(review.text)}</blockquote></article>`;
+    }).join('')}
+  </section>`;
+}
+
 function yygsEmptyStoryPanel(title, prompts, programId, lang) {
   const zh = lang === 'zh';
   return `<section class="yygs-panel yygs-stories yygs-stories--empty">
@@ -2570,17 +2603,20 @@ function yygsGenericPage(active, lang, programId) {
       ['outcomes', zh ? '项目收获' : 'Outcomes', zh ? '学生从项目中带走的收获' : 'What students took away from the program']
     ];
     const programName = pickL(program?.name || { en:'this program', zh:'这个项目' });
+    const reviews = window.SSDB.getReviews(programId);
+    const stories = reviews.filter(review => typeof review.text === 'string' && review.text.trim());
+    const loadMessage = reviewLoadMessage(zh);
     return `<div class="yygs-page-body yygs-page-body--overview">
-      <section class="yygs-panel yygs-glance yygs-glance--awaiting">
+      ${reviews.length ? programReviewSummary(reviews, zh) : loadMessage ? `<section class="yygs-panel" role="status"><h2>${esc(labels.overview)}</h2><p>${esc(loadMessage)}</p></section>` : `<section class="yygs-panel yygs-glance yygs-glance--awaiting">
         <div class="yygs-panel__head"><h2>${esc(labels.overview)}</h2><span>${esc(zh ? '等待已验证学生评价' : 'Awaiting verified student reviews')}</span></div>
         <div class="yygs-glance__grid">
           <div><strong>—</strong><span>${esc(zh ? '整体体验' : 'Overall experience')}</span></div>
           <div><strong>—</strong><span>${esc(zh ? '评分将在收到评价后显示' : 'Ratings appear after verified reviews')}</span></div>
           <div><h3>${esc(zh ? '学生如何描述它' : 'How students describe it')}</h3><p><i>${esc(zh ? '等待学生评价' : 'Awaiting student reviews')}</i></p></div>
         </div>
-      </section>
+      </section>`}
       ${yygsOfficialInfoHTML(lang, programId)}
-      ${yygsEmptyStoryPanel(zh ? '学生故事' : 'Student Stories', prompts.overview, programId, lang)}
+      ${stories.length ? programReviewStories(stories, zh) : loadMessage && !reviews.length ? '' : yygsEmptyStoryPanel(zh ? '学生故事' : 'Student Stories', prompts.overview, programId, lang)}
       <div class="yygs-category-grid">${categoryCards.map(item => `<a href="#/program/${esc(programId)}/${item[0]}"><span>${programSummaryIcon(item[0] === 'students' ? 'students' : item[0])}</span><h3>${esc(item[1])}</h3><p>${esc(item[2])}</p><b>→</b></a>`).join('')}</div>
       <section class="yygs-overview-cta">
         <div><h2>${esc(zh ? `参加过 ${programName} 吗？` : `Have experience with ${programName}?`)}</h2><p>${esc(zh ? '你的真实经历可以帮助下一位学生做决定。' : 'Your experience can help the next student decide.')}</p></div>
@@ -2604,6 +2640,14 @@ function renderYYGSProgramPage(active, programId = 'yygs') {
   $('#app').innerHTML = `${renderHeader('home')}<main class="yygs-review-page">${yygsPageHeader(active, lang, programId)}${content}</main>${renderFooter()}`;
   bindHeaderEvents();
   bindYYGSStoryCarousels();
+  const readStories = $('[data-read-stories]');
+  if (readStories) readStories.addEventListener('click', () => {
+    const heading = $('#program-stories-title');
+    if (heading) {
+      heading.focus({ preventScroll:true });
+      heading.scrollIntoView({ block:'start' });
+    }
+  });
   window.scrollTo({ top:0, left:0, behavior:'auto' });
 }
 
@@ -5297,7 +5341,10 @@ renderNavigation();
 // the shared SQLite records and redraw the current route. File previews keep
 // working offline, but never fabricate survey results.
 if (window.SSDB && window.SSDB.hydrateRemote) {
-  window.SSDB.hydrateRemote().then(function (loaded) { if (loaded) render(); });
+  window.SSDB.hydrateRemote().then(function (loaded) {
+    if (location.protocol !== 'file:') reviewLoadState = loaded ? 'ready' : 'error';
+    if (loaded || State.route.name === 'program' || State.route.name === 'contributors') render();
+  });
 }
 
 })();

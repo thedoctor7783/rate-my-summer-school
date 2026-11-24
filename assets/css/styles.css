@@ -4593,3 +4593,19 @@ button { font: inherit; cursor: pointer; }
   .yygs-overview-cta__review,
   .yygs-overview-cta__back { flex:1 1 100%; }
 }
+
+.program-review-summary { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:18px; margin-top:18px; }
+.program-review-summary strong { display:block; color:var(--green); font:700 2.6rem/1.2 var(--serif); }
+.program-review-summary small { font-size:1.15rem; }
+.program-review-summary button { cursor:pointer; }
+.program-review-stories h2 { scroll-margin-top:6rem; }
+.program-review-stories article { padding:16px 0 4px; }
+.program-review-stories article + article { border-top:1px solid #d4d8d5; margin-top:14px; }
+.program-review-stories__meta { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px 20px; }
+.program-review-stories__meta span { color:#5f6763; font-size:.92rem; }
+.program-review-stories blockquote { margin:10px 0; padding-left:18px; border-left:3px solid var(--green); white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.65; }
+@media (max-width:680px) {
+  .program-review-summary { align-items:flex-start; }
+  .program-review-summary button { width:100%; }
+  .program-review-stories { padding:22px 18px; }
+}
