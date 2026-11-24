@@ -1032,6 +1032,7 @@ button { font: inherit; cursor: pointer; }
 .review-v2__topic-card h2 { margin: 16px 0 6px; font-family: var(--serif); font-size: 30px; line-height: 1; }
 .review-v2__topic-card p { margin: 0; color: var(--ink-soft); font-size: 15px; line-height: 1.45; }
 .review-v2__topic-card small { margin-top: auto; padding-top: 16px; color: var(--green); font-size: 12px; font-weight: 800; letter-spacing:.05em; text-transform: uppercase; }
+.review-v2__topic-status { margin:18px 0 0; color:var(--ink-soft); font-size:14px; font-weight:700; text-align:center; }
 .review-v2__summary { display: grid; gap: 0; overflow: hidden; }
 .review-v2__summary div { display: grid; grid-template-columns: 180px 1fr; gap: 20px; padding: 18px 20px; }
 .review-v2__summary div + div { border-top: 1px solid var(--line-soft); }

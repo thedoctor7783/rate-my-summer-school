@@ -1234,7 +1234,7 @@ const REVIEW_V2 = {
     {
       id: 'outcomes', title: 'Outcomes', kicker: 'Anything you carried forward after the summer.',
       fields: [
-        { key:'takeaway', type:'open', optional:true, label:'Tell us anything you walked away with after attending the program (it can be tangible like a certificate of completion, rec letters; it can also be intangible like friendships, a taste of college life etc).', placeholder:'There is no right kind of outcome…' }
+        { key:'takeaway', type:'open', label:'Tell us anything you walked away with after attending the program (it can be tangible like a certificate of completion, rec letters; it can also be intangible like friendships, a taste of college life etc).', placeholder:'There is no right kind of outcome…' }
       ]
     }
   ]
@@ -1259,14 +1259,24 @@ function rvDraft(programId) {
 function rvPersist() { save(); }
 function rvProgramName(program) { return pickL(program?.name || { en:'Summer program', zh:'暑期项目' }); }
 function rvCategory(id) { return REVIEW_V2.categories.find(c => c.id === id); }
+function rvFieldAnswered(field, answers) {
+  if (field.type === 'prompt') {
+    return !!(String(answers[field.key + '_prompt'] || '').trim() && String(answers[field.key + '_text'] || '').trim());
+  }
+  const value = answers[field.key];
+  if (Array.isArray(value)) return value.length > 0;
+  if (field.type === 'grid') {
+    return !!(value && typeof value === 'object' && field.items.every(item => value[item] === 'NA' || (Number(value[item]) >= 1 && Number(value[item]) <= 5)));
+  }
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return String(value || '').trim().length > 0;
+}
 function rvCompletedCategory(category, draft) {
   const answers = draft.optional[category.id] || {};
-  return category.fields.some(field => {
-    const value = answers[field.key];
-    if (Array.isArray(value)) return value.length > 0;
-    if (value && typeof value === 'object') return Object.keys(value).length > 0;
-    return String(value || '').trim().length > 0;
-  });
+  const requiredFields = category.fields.filter(field => !field.optional);
+  return requiredFields.length
+    ? requiredFields.every(field => rvFieldAnswered(field, answers))
+    : category.fields.some(field => rvFieldAnswered(field, answers));
 }
 function rvGeneralReady(draft) {
   const g = draft.general;
@@ -1411,11 +1421,13 @@ function rvReflectionView(draft) {
   </section>`;
 }
 function rvTopicsView(draft, program) {
+  const completed = REVIEW_V2.categories.filter(category => rvCompletedCategory(category, draft));
   return `<section class="review-v2__shell review-v2__shell--topics">
-    <p class="review-v2__eyebrow">${esc(rvText('YOUR MEMORIES', '你的回忆'))}</p><h1>${esc(rvText('Have more memories to share?', '还有更多回忆想分享吗？'))}</h1>
-    <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('Choose any topic you have thoughts about. Entirely optional.', '选择任何你有想法的主题。全部可选。'))}</p>
-    <div class="review-v2__topic-grid">${REVIEW_V2.categories.map(category => { const done = rvCompletedCategory(category, draft); return `<button class="review-v2__topic-card ${done ? 'is-done' : ''}" data-rv-topic="${category.id}"><span>${done ? '✓' : '＋'}</span><h2>${esc(category.title)}</h2><p>${esc(category.kicker)}</p><small>${esc(done ? rvText('Added to your draft', '已加入草稿') : rvText('Optional', '可选'))}</small></button>`; }).join('')}</div>
-    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="reflection">${esc(rvText('Back', '返回'))}</button><button class="review-v2__primary" data-rv-go="review">${esc(rvText('Review my answers', '查看我的回答'))}</button></div>${rvDraftNote()}
+    <p class="review-v2__eyebrow">${esc(rvText('ONE TOPIC REQUIRED', '至少选择一个专题'))}</p><h1>${esc(rvText('Choose at least one topic', '至少选择一个专题'))}</h1>
+    <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('Complete one of the four topic surveys to continue. You may answer more if you would like.', '请完成以下四个专题问卷中的至少一个。你也可以回答更多专题。'))}</p>
+    <div class="review-v2__topic-grid">${REVIEW_V2.categories.map(category => { const done = rvCompletedCategory(category, draft); return `<button class="review-v2__topic-card ${done ? 'is-done' : ''}" data-rv-topic="${category.id}"><span>${done ? '✓' : '＋'}</span><h2>${esc(category.title)}</h2><p>${esc(category.kicker)}</p><small>${esc(done ? rvText('Completed', '已完成') : rvText('Choose this topic', '选择此专题'))}</small></button>`; }).join('')}</div>
+    <p class="review-v2__topic-status" role="status">${esc(completed.length ? rvText(`${completed.length} topic${completed.length === 1 ? '' : 's'} completed`, `已完成 ${completed.length} 个专题`) : rvText('Complete at least one topic to continue.', '请完成至少一个专题后继续。'))}</p>
+    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="reflection">${esc(rvText('Back', '返回'))}</button><button class="review-v2__primary" data-rv-require-topic>${esc(rvText('Review my answers', '查看我的回答'))}</button></div>${rvDraftNote()}
   </section>`;
 }
 function rvCategoryView(draft) {
@@ -1423,9 +1435,9 @@ function rvCategoryView(draft) {
   const answers = draft.optional[category.id] || (draft.optional[category.id] = {});
   return `<section class="review-v2__shell">
     <button class="review-v2__back review-v2__back--top" data-rv-go="topics">${esc(rvText('← Back to topics', '← 返回专题'))}</button>
-    <p class="review-v2__eyebrow">${esc(rvText('OPTIONAL TOPIC', '可选专题'))}</p><h1>${esc(category.title)}</h1><p class="review-v2__lede review-v2__lede--compact">${esc(category.kicker)}</p>
+    <p class="review-v2__eyebrow">${esc(rvText('CHOSEN TOPIC', '已选专题'))}</p><h1>${esc(category.title)}</h1><p class="review-v2__lede review-v2__lede--compact">${esc(category.kicker)}</p>
     <div class="review-v2__panel">${category.fields.map(field => rvFieldHTML(field, answers, category.id)).join('')}</div>
-    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="topics">${esc(rvText('Back to topics', '返回专题'))}</button><button class="review-v2__primary" data-rv-go="topics">${esc(rvText('Done', '完成'))}</button></div>${rvDraftNote()}
+    <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="topics">${esc(rvText('Back to topics', '返回专题'))}</button><button class="review-v2__primary" data-rv-complete-topic>${esc(rvText('Complete this topic', '完成此专题'))}</button></div>${rvDraftNote()}
   </section>`;
 }
 function rvReviewView(draft, program) {
@@ -1433,7 +1445,7 @@ function rvReviewView(draft, program) {
   return `<section class="review-v2__shell">
     <p class="review-v2__eyebrow">${esc(rvText('READY TO SAVE', '准备保存'))}</p><h1>${esc(rvText('Your review, at a glance', '你的评价，一览'))}</h1>
     <p class="review-v2__lede review-v2__lede--compact">${esc(rvText('You can still go back and edit anything before saving.', '保存前，你仍可以返回修改任何内容。'))}</p>
-    <div class="review-v2__summary"><div><span>${esc(rvText('Program', '项目'))}</span><strong>${esc(rvProgramName(program))}</strong></div><div><span>${esc(rvText('General review', '总体评价'))}</span><strong>${esc(rvGeneralReady(draft) ? rvText('Completed', '已完成') : rvText('Needs a little more', '还差一点'))}</strong></div><div><span>${esc(rvText('Optional topics', '可选专题'))}</span><strong>${esc(selected.length ? selected.map(c => c.title).join(' · ') : rvText('Skipped for now', '暂时跳过'))}</strong></div></div>
+    <div class="review-v2__summary"><div><span>${esc(rvText('Program', '项目'))}</span><strong>${esc(rvProgramName(program))}</strong></div><div><span>${esc(rvText('General review', '总体评价'))}</span><strong>${esc(rvGeneralReady(draft) ? rvText('Completed', '已完成') : rvText('Needs a little more', '还差一点'))}</strong></div><div><span>${esc(rvText('Required topic survey', '必答专题问卷'))}</span><strong>${esc(selected.map(c => c.title).join(' · '))}</strong></div></div>
     <label class="review-v2__contributor-optin"><input type="checkbox" data-rv-contributor-optin ${draft.foundingContributor ? 'checked' : ''}><span><strong>${esc(rvText('Join our Early Contributors wall', '加入早期贡献者感谢名单'))}</strong><small>${esc(rvText('The wall will show your display name and program. Your contact details stay private.', '感谢名单将展示你的昵称和所评项目。你的联系方式不会公开。'))}</small></span></label>
     <div class="review-v2__save-note"><strong>${esc(rvText('Save My Review', '保存我的评价'))}</strong><p>${esc(rvText('When you save, your rating and written reflection will appear on the program page.', '保存后，你的评分和书面评价将显示在项目页面上。'))}</p></div>
     <div class="review-v2__footer"><button class="review-v2__back" data-rv-go="topics">${esc(rvText('Back to topics', '返回专题'))}</button><button class="review-v2__primary" data-rv-save>${esc(rvText('Save My Review', '保存我的评价'))}</button></div>${rvDraftNote()}
@@ -1459,6 +1471,15 @@ function bindReviewV2() {
   $$('[data-rv-contributor-optin]').forEach(input => input.addEventListener('change', () => { draft.foundingContributor = input.checked; rvPersist(); }));
   $$('[data-rv-prompt]').forEach(button => button.addEventListener('click', () => { draft.optional[button.dataset.rvArea][button.dataset.rvKey] = button.dataset.value; rvPersist(); renderSurvey(draft.programId, { preserveScroll: true }); }));
   $$('[data-rv-topic]').forEach(button => button.addEventListener('click', () => { draft.activeCategory = button.dataset.rvTopic; draft.screen = 'category'; rvPersist(); renderSurvey(draft.programId); }));
+  $$('[data-rv-complete-topic]').forEach(button => button.addEventListener('click', () => {
+    const category = rvCategory(draft.activeCategory);
+    if (!category || !rvCompletedCategory(category, draft)) return rvShowError(rvText('Please answer every required question in this topic.', '请完成此专题中的所有必答问题。'));
+    draft.screen = 'topics'; rvPersist(); renderSurvey(draft.programId);
+  }));
+  $$('[data-rv-require-topic]').forEach(button => button.addEventListener('click', () => {
+    if (!REVIEW_V2.categories.some(category => rvCompletedCategory(category, draft))) return rvShowError(rvText('Complete at least one topic survey before continuing.', '请至少完成一个专题问卷后继续。'));
+    draft.screen = 'review'; rvPersist(); renderSurvey(draft.programId);
+  }));
   $$('[data-rv-go]').forEach(button => button.addEventListener('click', () => { draft.screen = button.dataset.rvGo; rvPersist(); renderSurvey(draft.programId); }));
   $$('[data-rv-next]').forEach(button => button.addEventListener('click', () => {
     const next = button.dataset.rvNext;
@@ -1478,6 +1499,7 @@ function rvShowError(message) {
 function rvSaveReview() {
   const draft = State.reviewDraft;
   if (!rvGeneralReady(draft)) { draft.screen = 'general'; rvPersist(); renderSurvey(draft.programId); return; }
+  if (!REVIEW_V2.categories.some(category => rvCompletedCategory(category, draft))) { draft.screen = 'topics'; rvPersist(); renderSurvey(draft.programId); return; }
   if (!window.SSDB.currentUser()) {
     draft.awaitingAuth = true; rvPersist();
     location.hash = '#/login';
